@@ -64,26 +64,63 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
   }
 
   @Override
-  public void postInitInterpreter(List<String> commands) throws ApexPythonInterpreterException
+  public void runCommands(List<String> commands) throws ApexPythonInterpreterException
   {
-
+    for (String aCommand : commands) {
+      try {
+        JEP_INSTANCE.eval(aCommand);
+      } catch (JepException e) {
+        throw new ApexPythonInterpreterException(e);
+      }
+    }
   }
 
   @Override
-  public T executeCall(Map<String, Object> methodParams) throws ApexPythonInterpreterException
+  public T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod)
+      throws ApexPythonInterpreterException
   {
-    return null;
+    try {
+      return (T)JEP_INSTANCE.invoke(nameOfGlobalMethod,argsToGlobalMethod.toArray());
+    } catch (JepException e) {
+      throw new ApexPythonInterpreterException(e);
+    }
   }
 
   @Override
-  public T executeScript(Map<String, Object> methodParams) throws ApexPythonInterpreterException
+  public void executeScript(String scriptName, Map<String, Object> globalParams) throws ApexPythonInterpreterException
   {
-    return null;
+
+    try {
+      for(String aKey: globalParams.keySet()) {
+        JEP_INSTANCE.set(aKey, globalParams.get(aKey));
+      }
+      JEP_INSTANCE.runScript(scriptName);
+    } catch (JepException e) {
+      throw new ApexPythonInterpreterException(e);
+    }
+  }
+
+  @Override
+  public T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams)
+      throws ApexPythonInterpreterException
+  {
+    try {
+      for(String aKey: globalMethodsParams.keySet()) {
+        JEP_INSTANCE.set(aKey, globalMethodsParams.get(aKey));
+      }
+      JEP_INSTANCE.eval(command);
+      if (variableToExtract != null) {
+        return (T) JEP_INSTANCE.getValue(variableToExtract);
+      }
+      return null;
+    } catch (JepException e) {
+      throw new ApexPythonInterpreterException(e);
+    }
   }
 
   @Override
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
-
+    JEP_INSTANCE.close();
   }
 }

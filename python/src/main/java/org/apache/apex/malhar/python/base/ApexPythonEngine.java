@@ -13,11 +13,14 @@ public interface ApexPythonEngine<T>
 
   void startInterpreter() throws ApexPythonInterpreterException;
 
-  void postInitInterpreter(List<String> commands) throws ApexPythonInterpreterException;
+  void runCommands(List<String> commands) throws ApexPythonInterpreterException;
 
-  T executeCall(Map<String,Object> methodParams) throws ApexPythonInterpreterException;
+  T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod) throws ApexPythonInterpreterException;
 
-  T executeScript(Map<String,Object> methodParams) throws ApexPythonInterpreterException;
+  void executeScript(String scriptName, Map<String,Object> methodParams) throws ApexPythonInterpreterException;
+
+  T eval(String command, String variableNameToFetch, Map<String,Object> globalMethodsParams)
+      throws ApexPythonInterpreterException;
 
   void stopInterpreter() throws ApexPythonInterpreterException;
 
