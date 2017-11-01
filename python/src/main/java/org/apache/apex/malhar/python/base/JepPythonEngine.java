@@ -2,6 +2,9 @@ package org.apache.apex.malhar.python.base;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 import jep.Jep;
 import jep.JepConfig;
@@ -21,15 +24,33 @@ import jep.JepException;
  *      in separate JVM operators. The user of the operator will have to workaround if such a use case is needed.</li>
  *    <li>Shared modules across each operator instances are possible.If there is such a situation, this
  *     implementation will automatically filter common modules between
- *     {@code {@link ApexPythonEngine#loadSharedModules()}} and {@link ApexPythonEngine#importMandatoryModules()}</li>
+ *     {@code {@link ApexPythonEngine#startInterpreter()} ()}} and {@link ApexPythonEngine#runCommands(List)} ()}</li>
  *   </ol>
  * </p>
  *
  */
+
 public class JepPythonEngine<T> implements ApexPythonEngine<T>
 {
   public static final String JEP_LIBRARY_NAME = "jep";
-  public transient static Jep JEP_INSTANCE;
+  public static transient Jep JEP_INSTANCE;
+
+  ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+  public static class JepInterpreterWorkThread<T> implements Callable<T>
+  {
+
+    @Override
+    public T call() throws Exception
+    {
+      return null;
+    }
+  }
+
+  public JepPythonEngine()
+  {
+    //executorService.
+  }
 
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
   {
@@ -52,10 +73,10 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
   public void startInterpreter() throws ApexPythonInterpreterException
   {
     JepConfig config = new JepConfig()
-      .setRedirectOutputStreams(true)
-      .setInteractive(false)
-      .setClassLoader(Thread.currentThread().getContextClassLoader()
-      );
+        .setRedirectOutputStreams(true)
+        .setInteractive(false)
+        .setClassLoader(Thread.currentThread().getContextClassLoader()
+    );
     try {
       JEP_INSTANCE = new Jep(config);
     } catch (JepException e) {
@@ -77,7 +98,7 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
 
   @Override
   public T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod)
-      throws ApexPythonInterpreterException
+    throws ApexPythonInterpreterException
   {
     try {
       return (T)JEP_INSTANCE.invoke(nameOfGlobalMethod,argsToGlobalMethod.toArray());
@@ -91,7 +112,7 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
   {
 
     try {
-      for(String aKey: globalParams.keySet()) {
+      for (String aKey: globalParams.keySet()) {
         JEP_INSTANCE.set(aKey, globalParams.get(aKey));
       }
       JEP_INSTANCE.runScript(scriptName);
@@ -102,15 +123,15 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
 
   @Override
   public T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams)
-      throws ApexPythonInterpreterException
+    throws ApexPythonInterpreterException
   {
     try {
-      for(String aKey: globalMethodsParams.keySet()) {
+      for (String aKey: globalMethodsParams.keySet()) {
         JEP_INSTANCE.set(aKey, globalMethodsParams.get(aKey));
       }
       JEP_INSTANCE.eval(command);
       if (variableToExtract != null) {
-        return (T) JEP_INSTANCE.getValue(variableToExtract);
+        return (T)JEP_INSTANCE.getValue(variableToExtract);
       }
       return null;
     } catch (JepException e) {
@@ -123,4 +144,6 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
   {
     JEP_INSTANCE.close();
   }
+
+
 }
