@@ -5,6 +5,7 @@ import java.util.Map;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import jep.Jep;
 import jep.JepConfig;
@@ -24,33 +25,19 @@ import jep.JepException;
  *      in separate JVM operators. The user of the operator will have to workaround if such a use case is needed.</li>
  *    <li>Shared modules across each operator instances are possible.If there is such a situation, this
  *     implementation will automatically filter common modules between
- *     {@code {@link ApexPythonEngine#startInterpreter()} ()}} and {@link ApexPythonEngine#runCommands(List)} ()}</li>
+ *     {@code {@link ApexPythonEngine#startInterpreter()} ()}} and {@link ApexPythonEngine#runCommands(List, long,
+ *       TimeUnit)}</li>
  *   </ol>
  * </p>
  *
  */
 
-public class JepPythonEngine<T> implements ApexPythonEngine<T>
+public class JepPythonEngine implements ApexPythonEngine
 {
   public static final String JEP_LIBRARY_NAME = "jep";
   public static transient Jep JEP_INSTANCE;
 
   ExecutorService executorService = Executors.newFixedThreadPool(1);
-
-  public static class JepInterpreterWorkThread<T> implements Callable<T>
-  {
-
-    @Override
-    public T call() throws Exception
-    {
-      return null;
-    }
-  }
-
-  public JepPythonEngine()
-  {
-    //executorService.
-  }
 
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
   {
@@ -85,7 +72,7 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
   }
 
   @Override
-  public void runCommands(List<String> commands) throws ApexPythonInterpreterException
+  public void runCommands(List<String> commands,long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException
   {
     for (String aCommand : commands) {
       try {
@@ -97,8 +84,8 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
   }
 
   @Override
-  public T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod)
-    throws ApexPythonInterpreterException
+  public <T> T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod,long timeout,
+      TimeUnit timeUnit, T type) throws ApexPythonInterpreterException
   {
     try {
       return (T)JEP_INSTANCE.invoke(nameOfGlobalMethod,argsToGlobalMethod.toArray());
@@ -108,7 +95,8 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
   }
 
   @Override
-  public void executeScript(String scriptName, Map<String, Object> globalParams) throws ApexPythonInterpreterException
+  public void executeScript(String scriptName, Map<String, Object> globalParams,long timeout, TimeUnit timeUnit)
+    throws ApexPythonInterpreterException
   {
 
     try {
@@ -122,8 +110,8 @@ public class JepPythonEngine<T> implements ApexPythonEngine<T>
   }
 
   @Override
-  public T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams)
-    throws ApexPythonInterpreterException
+  public <T> T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams,long timeout,
+      TimeUnit timeUnit, T expectedReturnType) throws ApexPythonInterpreterException
   {
     try {
       for (String aKey: globalMethodsParams.keySet()) {
