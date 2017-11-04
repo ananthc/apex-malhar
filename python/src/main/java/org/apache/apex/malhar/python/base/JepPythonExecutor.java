@@ -35,7 +35,7 @@ import jep.JepException;
 public class JepPythonEngine implements ApexPythonEngine
 {
   public static final String JEP_LIBRARY_NAME = "jep";
-  public static transient Jep JEP_INSTANCE;
+  public transient Jep JEP_INSTANCE;
 
   ExecutorService executorService = Executors.newFixedThreadPool(1);
 
