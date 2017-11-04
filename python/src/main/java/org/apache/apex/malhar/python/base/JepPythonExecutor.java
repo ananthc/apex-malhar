@@ -1,7 +1,9 @@
 package org.apache.apex.malhar.python.base;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -32,12 +34,12 @@ import jep.JepException;
  *
  */
 
-public class JepPythonEngine implements ApexPythonEngine
+public class JepPythonExecutor
 {
   public static final String JEP_LIBRARY_NAME = "jep";
   public transient Jep JEP_INSTANCE;
 
-  ExecutorService executorService = Executors.newFixedThreadPool(1);
+  //ArrayBlockingQueue<T>
 
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
   {
@@ -50,13 +52,12 @@ public class JepPythonEngine implements ApexPythonEngine
     return JEP_INSTANCE;
   }
 
-  @Override
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
   {
     loadMandatoryJVMLibraries();
   }
 
-  @Override
+
   public void startInterpreter() throws ApexPythonInterpreterException
   {
     JepConfig config = new JepConfig()
@@ -71,21 +72,24 @@ public class JepPythonEngine implements ApexPythonEngine
     }
   }
 
-  @Override
-  public void runCommands(List<String> commands,long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException
+
+  public Map<String,Boolean> runCommands(List<String> commands)
+      throws ApexPythonInterpreterException
   {
+    Map<String,Boolean> resultsOfExecution = new HashMap<>();
     for (String aCommand : commands) {
       try {
-        JEP_INSTANCE.eval(aCommand);
+        resultsOfExecution.put(aCommand,JEP_INSTANCE.eval(aCommand));
       } catch (JepException e) {
+        resultsOfExecution.put(aCommand,Boolean.FALSE);
         throw new ApexPythonInterpreterException(e);
       }
     }
+    return resultsOfExecution;
   }
 
-  @Override
-  public <T> T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod,long timeout,
-      TimeUnit timeUnit, T type) throws ApexPythonInterpreterException
+  public <T> T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod,
+      T type) throws ApexPythonInterpreterException
   {
     try {
       return (T)JEP_INSTANCE.invoke(nameOfGlobalMethod,argsToGlobalMethod.toArray());
@@ -94,11 +98,9 @@ public class JepPythonEngine implements ApexPythonEngine
     }
   }
 
-  @Override
-  public void executeScript(String scriptName, Map<String, Object> globalParams,long timeout, TimeUnit timeUnit)
+  public void executeScript(String scriptName, Map<String, Object> globalParams)
     throws ApexPythonInterpreterException
   {
-
     try {
       for (String aKey: globalParams.keySet()) {
         JEP_INSTANCE.set(aKey, globalParams.get(aKey));
@@ -109,9 +111,8 @@ public class JepPythonEngine implements ApexPythonEngine
     }
   }
 
-  @Override
-  public <T> T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams,long timeout,
-      TimeUnit timeUnit, T expectedReturnType) throws ApexPythonInterpreterException
+  public <T> T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams,
+      T expectedReturnType) throws ApexPythonInterpreterException
   {
     try {
       for (String aKey: globalMethodsParams.keySet()) {
@@ -127,7 +128,6 @@ public class JepPythonEngine implements ApexPythonEngine
     }
   }
 
-  @Override
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
     JEP_INSTANCE.close();

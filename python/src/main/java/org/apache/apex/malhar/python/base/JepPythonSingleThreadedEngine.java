@@ -2,14 +2,33 @@ package org.apache.apex.malhar.python.base;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-public class JepPythonEngine extends AbstractApexPythonEngine
+public class JepPythonSingleThreadedEngine extends AbstractApexPythonEngine
 {
   private transient JepPythonExecutor jepPythonExecutor;
 
-  public JepPythonEngine()
+  private static class JepPythonCommandsExecutor<T> implements Callable<T>
+  {
+
+    public JepPythonCommandsExecutor(JepPythonExecutor jepPythonExecutor)
+    {
+    }
+
+    @Override
+    public T call() throws Exception
+    {
+      return null;
+    }
+  }
+
+  ExecutorService executorService = Executors.newFixedThreadPool(1);
+
+  public JepPythonSingleThreadedEngine()
   {
     jepPythonExecutor = new JepPythonExecutor();
   }

@@ -1,5 +1,5 @@
 package org.apache.apex.malhar.python.base;
 
-public class JepPythonEngine
+public abstract class AbstractApexPythonEngine implements ApexPythonEngine
 {
 }
