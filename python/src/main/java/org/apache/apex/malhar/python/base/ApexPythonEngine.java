@@ -15,17 +15,18 @@ public interface ApexPythonEngine
 
   void startInterpreter() throws ApexPythonInterpreterException;
 
-  Map<String,Boolean>  runCommands(List<String> commands, long timeout, TimeUnit timeUnit)
-      throws ApexPythonInterpreterException, TimeoutException;
+  Map<String,Boolean>  runCommands(WorkerExecutionMode executionMode, List<String> commands, long timeout,
+      TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException;
 
-  <T> T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod,long timeout, TimeUnit timeUnit,
-     T expectedReturnType) throws ApexPythonInterpreterException, TimeoutException;
+  <T> T executeMethodCall(WorkerExecutionMode executionMode,String nameOfGlobalMethod, List<Object> argsToGlobalMethod,
+     long timeout, TimeUnit timeUnit, T expectedReturnType) throws ApexPythonInterpreterException, TimeoutException;
 
-  void executeScript(String scriptName, Map<String,Object> methodParams, long timeout, TimeUnit timeUnit)
-      throws ApexPythonInterpreterException, TimeoutException;
+  void executeScript(WorkerExecutionMode executionMode,String scriptName, Map<String,Object> methodParams, long timeout,
+      TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException;
 
-  <T> T eval(String command, String variableNameToFetch, Map<String,Object> globalMethodsParams,long timeout,
-      TimeUnit timeUnit, T expectedReturnType) throws ApexPythonInterpreterException, TimeoutException;
+  <T> T eval(WorkerExecutionMode executionMode, String command, String variableNameToFetch,
+      Map<String,Object> globalMethodsParams,long timeout, TimeUnit timeUnit, boolean deleteExtractedVariable,
+      T expectedReturnType) throws ApexPythonInterpreterException, TimeoutException;
 
   void stopInterpreter() throws ApexPythonInterpreterException;
 
