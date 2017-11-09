@@ -27,15 +27,20 @@ public class JepPythonExecutionEngine extends AbstractApexPythonEngine
 
   private int bufferCapacity = 16; // Represents the number of workers and response queue sizes
 
+  private int interpreterId;
+
   private transient BlockingQueue<PythonRequestResponse> requestQueue =
     new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
 
   private transient BlockingQueue<PythonRequestResponse> responseQueue =
     new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
 
+  private transient BlockingQueue<PythonRequestResponse> delayedResponsesQueue;
 
-  public JepPythonExecutionEngine()
+
+  public JepPythonExecutionEngine(int interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef)
   {
+    delayedResponsesQueue = delayedResponsesQueueRef;
     jepPythonCommandExecutor = new JepPythonCommandExecutor(requestQueue,responseQueue);
   }
 
@@ -52,32 +57,48 @@ public class JepPythonExecutionEngine extends AbstractApexPythonEngine
   }
 
   @Override
-  public Map<String, Boolean> runCommands(WorkerExecutionMode executionMode,List<String> commands, long timeout,
-      TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
+  public Map<String, Boolean> runCommands(WorkerExecutionMode executionMode,long windowId, long requestId,
+      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
   {
-    jepPythonCommandExecutor.runCommands(commands);
+    PythonRequestResponse requestResponse = new PythonRequestResponse();
+    PythonRequestResponse.PythonInterpreterRequest request = requestResponse.new PythonInterpreterRequest<>();
+    request.setCommandType(PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
+    request.setGenericCommands(commands);
+    requestResponse.setRequestStartTime(System.currentTimeMillis());
+    requestResponse.setRequestId(requestId);
+    requestResponse.setWindowId(windowId);
+    try {
+      drain the responses if any
+      requestQueue.put(requestResponse);
+       possibility of the last one just eneterd the queue . Hence drain and comapre request id s
+      PythonRequestResponse requestWithResponse = responseQueue.poll(timeout,timeUnit);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
     return null;
   }
 
   @Override
-  public <T> T executeMethodCall(WorkerExecutionMode executionMode,String nameOfGlobalMethod,
-      List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit, T expectedReturnType)
+  public <T> T executeMethodCall(WorkerExecutionMode executionMode, long windowId, long requestId,
+      String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
+      Class<T> expectedReturnType) throws ApexPythonInterpreterException, TimeoutException
+  {
+    return null;
+  }
+
+  @Override
+  public void executeScript(WorkerExecutionMode executionMode, long windowId, long requestId, String scriptName,
+      Map<String, Object> methodParams, long timeout, TimeUnit timeUnit)
       throws ApexPythonInterpreterException, TimeoutException
   {
-    return null;
-  }
-
-  @Override
-  public void executeScript(WorkerExecutionMode executionMode, String scriptName, Map<String, Object> methodParams,
-      long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
-  {
 
   }
 
   @Override
-  public <T> T eval(WorkerExecutionMode executionMode, String command, String variableNameToFetch,
-      Map<String, Object> globalMethodsParams, long timeout, TimeUnit timeUnit, boolean deleteExtractedVariable,
-      T expectedReturnType) throws ApexPythonInterpreterException, TimeoutException
+  public <T> T eval(WorkerExecutionMode executionMode, long windowId, long requestId,String command,
+      String variableNameToFetch, Map<String, Object> globalMethodsParams, long timeout, TimeUnit timeUnit,
+      boolean deleteExtractedVariable, Class<T> expectedReturnType)
+      throws ApexPythonInterpreterException,TimeoutException
   {
     return null;
   }
@@ -86,5 +107,75 @@ public class JepPythonExecutionEngine extends AbstractApexPythonEngine
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
 
+  }
+
+  public JepPythonCommandExecutor getJepPythonCommandExecutor()
+  {
+    return jepPythonCommandExecutor;
+  }
+
+  public void setJepPythonCommandExecutor(JepPythonCommandExecutor jepPythonCommandExecutor)
+  {
+    this.jepPythonCommandExecutor = jepPythonCommandExecutor;
+  }
+
+  public SpinPolicy getCpuSpinPolicyForWaitingInBuffer()
+  {
+    return cpuSpinPolicyForWaitingInBuffer;
+  }
+
+  public void setCpuSpinPolicyForWaitingInBuffer(SpinPolicy cpuSpinPolicyForWaitingInBuffer)
+  {
+    this.cpuSpinPolicyForWaitingInBuffer = cpuSpinPolicyForWaitingInBuffer;
+  }
+
+  public int getBufferCapacity()
+  {
+    return bufferCapacity;
+  }
+
+  public void setBufferCapacity(int bufferCapacity)
+  {
+    this.bufferCapacity = bufferCapacity;
+  }
+
+  public int getInterpreterId()
+  {
+    return interpreterId;
+  }
+
+  public void setInterpreterId(int interpreterId)
+  {
+    this.interpreterId = interpreterId;
+  }
+
+  public BlockingQueue<PythonRequestResponse> getRequestQueue()
+  {
+    return requestQueue;
+  }
+
+  public void setRequestQueue(BlockingQueue<PythonRequestResponse> requestQueue)
+  {
+    this.requestQueue = requestQueue;
+  }
+
+  public BlockingQueue<PythonRequestResponse> getResponseQueue()
+  {
+    return responseQueue;
+  }
+
+  public void setResponseQueue(BlockingQueue<PythonRequestResponse> responseQueue)
+  {
+    this.responseQueue = responseQueue;
+  }
+
+  public BlockingQueue<PythonRequestResponse> getDelayedResponsesQueue()
+  {
+    return delayedResponsesQueue;
+  }
+
+  public void setDelayedResponsesQueue(BlockingQueue<PythonRequestResponse> delayedResponsesQueue)
+  {
+    this.delayedResponsesQueue = delayedResponsesQueue;
   }
 }

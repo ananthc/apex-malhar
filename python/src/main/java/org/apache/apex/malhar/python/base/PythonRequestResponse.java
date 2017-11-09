@@ -14,6 +14,10 @@ public class PythonRequestResponse
 
   long windowId;
 
+  long requestStartTime;
+
+  long requestCompletionTime;
+
   public PythonInterpreterRequest getPythonInterpreterRequest()
   {
     return pythonInterpreterRequest;
@@ -54,11 +58,33 @@ public class PythonRequestResponse
     this.windowId = windowId;
   }
 
+  public long getRequestStartTime()
+  {
+    return requestStartTime;
+  }
+
+  public void setRequestStartTime(long requestStartTime)
+  {
+    this.requestStartTime = requestStartTime;
+  }
+
+  public long getRequestCompletionTime()
+  {
+    return requestCompletionTime;
+  }
+
+  public void setRequestCompletionTime(long requestCompletionTime)
+  {
+    this.requestCompletionTime = requestCompletionTime;
+  }
+
+
+
   public class PythonInterpreterRequest<T>
   {
     PythonCommandType commandType;
 
-    long requestStartTime;
+
 
     List<String> genericCommands;
 
@@ -82,7 +108,7 @@ public class PythonRequestResponse
 
     Map<String,Object> paramsForEvalCommand;
 
-    T expectedReturnType; FIX this 
+    Class<T> expectedReturnType;
 
     public PythonCommandType getCommandType()
     {
@@ -93,17 +119,6 @@ public class PythonRequestResponse
     {
       this.commandType = commandType;
     }
-
-    public long getRequestStartTime()
-    {
-      return requestStartTime;
-    }
-
-    public void setRequestStartTime(long requestStartTime)
-    {
-      this.requestStartTime = requestStartTime;
-    }
-
 
     public long getTimeOut()
     {
@@ -215,28 +230,21 @@ public class PythonRequestResponse
       this.paramsForEvalCommand = paramsForEvalCommand;
     }
 
-    public T getExpectedReturnType()
+    public Class<T> getExpectedReturnType()
     {
       return expectedReturnType;
     }
 
+    public void setExpectedReturnType(Class<T> expectedReturnType)
+    {
+      this.expectedReturnType = expectedReturnType;
+    }
   }
 
   public class PythonInterpreterResponse<T>
   {
 
-    long requestCompletionTime;
     T response;
-
-    public long getRequestCompletionTime()
-    {
-      return requestCompletionTime;
-    }
-
-    public void setRequestCompletionTime(long requestCompletionTime)
-    {
-      this.requestCompletionTime = requestCompletionTime;
-    }
 
     public T getResponse()
     {
