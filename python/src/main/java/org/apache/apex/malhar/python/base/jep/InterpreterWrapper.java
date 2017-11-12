@@ -1,5 +1,6 @@
 package org.apache.apex.malhar.python.base.jep;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
@@ -9,7 +10,6 @@ import java.util.concurrent.TimeoutException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.apex.malhar.python.base.AbstractApexPythonEngine;
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
 import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
@@ -17,11 +17,11 @@ import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
 
-public class JepPythonExecutionEngine extends AbstractApexPythonEngine
+public class InterpreterWrapper
 {
-  private static final Logger LOG = LoggerFactory.getLogger(JepPythonExecutionEngine.class);
+  private static final Logger LOG = LoggerFactory.getLogger(InterpreterWrapper.class);
 
-  private transient JepPythonCommandExecutor jepPythonCommandExecutor;
+  private transient InterpreterThread interpreterThread;
 
   private transient SpinPolicy cpuSpinPolicyForWaitingInBuffer = SpinPolicy.WAITING;
 
@@ -38,64 +38,93 @@ public class JepPythonExecutionEngine extends AbstractApexPythonEngine
   private transient BlockingQueue<PythonRequestResponse> delayedResponsesQueue;
 
 
-  public JepPythonExecutionEngine(int interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef)
+  public InterpreterWrapper(int interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef)
   {
     delayedResponsesQueue = delayedResponsesQueueRef;
-    jepPythonCommandExecutor = new JepPythonCommandExecutor(requestQueue,responseQueue);
+    interpreterThread = new InterpreterThread(requestQueue,responseQueue);
   }
 
-  @Override
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
   {
-    jepPythonCommandExecutor.preInitInterpreter(preInitConfigs);
+    interpreterThread.preInitInterpreter(preInitConfigs);
   }
 
-  @Override
   public void startInterpreter() throws ApexPythonInterpreterException
   {
-    jepPythonCommandExecutor.startInterpreter();
+    interpreterThread.startInterpreter();
   }
 
-  @Override
-  public Map<String, Boolean> runCommands(WorkerExecutionMode executionMode,long windowId, long requestId,
-      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
+  private <T> PythonRequestResponse buildRequestObject(PythonRequestResponse.PythonCommandType commandType,
+      long windowId,long requestId, Class<T> tClass)
   {
-    PythonRequestResponse requestResponse = new PythonRequestResponse();
-    PythonRequestResponse.PythonInterpreterRequest request = requestResponse.new PythonInterpreterRequest<>();
-    request.setCommandType(PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
-    request.setGenericCommands(commands);
+    PythonRequestResponse<T> requestResponse = new PythonRequestResponse();
+    PythonRequestResponse<T>.PythonInterpreterRequest<T> request = requestResponse.new PythonInterpreterRequest<>();
+    PythonRequestResponse<T>.PythonInterpreterResponse<T> response =
+        requestResponse.new PythonInterpreterResponse<>(tClass);
+    request.setCommandType(commandType);
     requestResponse.setRequestStartTime(System.currentTimeMillis());
     requestResponse.setRequestId(requestId);
     requestResponse.setWindowId(windowId);
+    return requestResponse;
+  }
+
+  private PythonRequestResponse processRequest(PythonRequestResponse request, long timeout,
+      TimeUnit timeUnit,List<PythonRequestResponse> stragglers) throws ApexPythonInterpreterException, TimeoutException
+  {
+    List<PythonRequestResponse> drainedResults = new ArrayList<>();
+    PythonRequestResponse currentRequestWithResponse = null;
+    // drain any previous responses that were returned while the Apex operator is processing
+    responseQueue.drainTo(drainedResults);
     try {
-      drain the responses if any
-      requestQueue.put(requestResponse);
-       possibility of the last one just eneterd the queue . Hence drain and comapre request id s
-      PythonRequestResponse requestWithResponse = responseQueue.poll(timeout,timeUnit);
+      requestQueue.put(request);
+      currentRequestWithResponse = responseQueue.poll(timeout,timeUnit); // ensures we are blocked till the time limit
+      if (currentRequestWithResponse != null) {
+        // add the last one that was just polled
+        drainedResults.add(currentRequestWithResponse);
+      }
+      // possible that there are other responses not belonging to the current request that might have arrived
+      responseQueue.drainTo(drainedResults);
+      long currentRequestId = request.getRequestId();
+      long currentWindowId = request.getWindowId();
+      for(PythonRequestResponse aReqRespObject: drainedResults) {
+        if ( (aReqRespObject.getWindowId() == currentWindowId) && (aReqRespObject.getRequestId() == currentRequestId)) {
+          currentRequestWithResponse = aReqRespObject;
+        } else {
+          stragglers.add(aReqRespObject);
+        }
+      }
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
+    return currentRequestWithResponse;
+  }
+
+  public Map<String, Boolean> runCommands(long windowId, long requestId,
+      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
+  {
+    List<PythonRequestResponse> stragglers = new ArrayList<>();
+    PythonRequestResponse requestResponse = buildRequestObject(PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS,
+        windowId,requestId,Void.class);
+    requestResponse.getPythonInterpreterRequest().setGenericCommands(commands);
+    processRequest(requestResponse,timeout,timeUnit,stragglers);
     return null;
   }
 
-  @Override
-  public <T> T executeMethodCall(WorkerExecutionMode executionMode, long windowId, long requestId,
+  public <T> T executeMethodCall(long windowId, long requestId,
       String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
       Class<T> expectedReturnType) throws ApexPythonInterpreterException, TimeoutException
   {
     return null;
   }
 
-  @Override
-  public void executeScript(WorkerExecutionMode executionMode, long windowId, long requestId, String scriptName,
+  public void executeScript(long windowId, long requestId, String scriptName,
       Map<String, Object> methodParams, long timeout, TimeUnit timeUnit)
       throws ApexPythonInterpreterException, TimeoutException
   {
 
   }
 
-  @Override
-  public <T> T eval(WorkerExecutionMode executionMode, long windowId, long requestId,String command,
+  public <T> T eval(long windowId, long requestId,String command,
       String variableNameToFetch, Map<String, Object> globalMethodsParams, long timeout, TimeUnit timeUnit,
       boolean deleteExtractedVariable, Class<T> expectedReturnType)
       throws ApexPythonInterpreterException,TimeoutException
@@ -103,20 +132,19 @@ public class JepPythonExecutionEngine extends AbstractApexPythonEngine
     return null;
   }
 
-  @Override
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
 
   }
 
-  public JepPythonCommandExecutor getJepPythonCommandExecutor()
+  public InterpreterThread getInterpreterThread()
   {
-    return jepPythonCommandExecutor;
+    return interpreterThread;
   }
 
-  public void setJepPythonCommandExecutor(JepPythonCommandExecutor jepPythonCommandExecutor)
+  public void setInterpreterThread(InterpreterThread interpreterThread)
   {
-    this.jepPythonCommandExecutor = jepPythonCommandExecutor;
+    this.interpreterThread = interpreterThread;
   }
 
   public SpinPolicy getCpuSpinPolicyForWaitingInBuffer()

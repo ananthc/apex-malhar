@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-public class PythonRequestResponse
+public class PythonRequestResponse<T>
 {
   PythonInterpreterRequest pythonInterpreterRequest;
 
@@ -244,6 +244,15 @@ public class PythonRequestResponse
   public class PythonInterpreterResponse<T>
   {
 
+    Class<T> responseTypeClass;
+
+    Map<String,Boolean> commandStatus;
+
+    public PythonInterpreterResponse(Class<T> responseTypeClassHandle)
+    {
+      responseTypeClass = responseTypeClassHandle;
+    }
+
     T response;
 
     public T getResponse()
@@ -254,6 +263,16 @@ public class PythonRequestResponse
     public void setResponse(T response)
     {
       this.response = response;
+    }
+
+    public Map<String, Boolean> getCommandStatus()
+    {
+      return commandStatus;
+    }
+
+    public void setCommandStatus(Map<String, Boolean> commandStatus)
+    {
+      this.commandStatus = commandStatus;
     }
   }
 

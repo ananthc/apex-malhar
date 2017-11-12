@@ -9,7 +9,6 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.apex.malhar.python.base.ApexPythonEngine;
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
 import org.apache.apex.malhar.python.base.PythonRequestResponse;
 
@@ -21,9 +20,9 @@ import jep.JepException;
  *
  */
 
-public class JepPythonCommandExecutor implements Runnable
+public class InterpreterThread implements Runnable
 {
-  private static final Logger LOG = LoggerFactory.getLogger(JepPythonCommandExecutor.class);
+  private static final Logger LOG = LoggerFactory.getLogger(InterpreterThread.class);
 
   public static final String JEP_LIBRARY_NAME = "jep";
   public static final String PYTHON_DEL_COMMAND = "del ";
@@ -44,7 +43,7 @@ public class JepPythonCommandExecutor implements Runnable
 
   private Map<String,Object> initConfigs = new HashMap<>();
 
-  public JepPythonCommandExecutor(BlockingQueue<PythonRequestResponse> requestQueue,
+  public InterpreterThread(BlockingQueue<PythonRequestResponse> requestQueue,
       BlockingQueue<PythonRequestResponse> responseQueue)
   {
     this.requestQueue = requestQueue;
@@ -109,7 +108,7 @@ public class JepPythonCommandExecutor implements Runnable
   }
 
   private <T> T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod,
-      T type) throws ApexPythonInterpreterException
+      Class<T> type) throws ApexPythonInterpreterException
   {
     try {
       return (T)JEP_INSTANCE.invoke(nameOfGlobalMethod,argsToGlobalMethod.toArray());
@@ -135,7 +134,7 @@ public class JepPythonCommandExecutor implements Runnable
   }
 
   private <T> T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams,
-    boolean deleteExtractedVariable,T expectedReturnType) throws ApexPythonInterpreterException
+    boolean deleteExtractedVariable,Class<T> expectedReturnType) throws ApexPythonInterpreterException
   {
     T variableToReturn = null;
     try {
@@ -164,38 +163,50 @@ public class JepPythonCommandExecutor implements Runnable
     JEP_INSTANCE.close();
   }
 
+  private <T> void processCommand() throws ApexPythonInterpreterException, InterruptedException
+  {
+    PythonRequestResponse requestResponseHandle = requestQueue.poll(timeOutToPollFromRequestQueue,
+      timeUnitsToPollFromRequestQueue);
+    if (requestResponseHandle != null) {
+      PythonRequestResponse<T>.PythonInterpreterRequest<T> request = requestResponseHandle.getPythonInterpreterRequest();
+      PythonRequestResponse<T>.PythonInterpreterResponse<T> response =
+        requestResponseHandle.getPythonInterpreterResponse();
+      Map<String,Boolean> commandStatus = new HashMap<>(1);
+      switch (request.getCommandType()) {
+        case EVAL_COMMAND:
+          response.setResponse(eval(request.getEvalCommand(), request.getVariableNameToExtractInEvalCall(),
+            request.getParamsForEvalCommand(), request.isDeleteVariableAfterEvalCall(),
+            request.getExpectedReturnType()));
+          commandStatus.put(request.getEvalCommand(),Boolean.TRUE);
+          response.setCommandStatus(commandStatus);
+          break;
+        case SCRIPT_COMMAND:
+          executeScript(request.getScriptName(), request.getMethodParamsForScript());
+          commandStatus.put(request.getScriptName(),Boolean.TRUE);
+          break;
+        case METHOD_INVOCATION_COMMAND:
+          response.setResponse(executeMethodCall(request.getNameOfMethodForMethodCallInvocation(),
+            request.getArgsToMethodCallInvocation(), request.getExpectedReturnType()));
+          commandStatus.put(request.getNameOfMethodForMethodCallInvocation(),Boolean.TRUE);
+          response.setCommandStatus(commandStatus);
+          break;
+        case GENERIC_COMMANDS:
+          response.setCommandStatus(runCommands(request.getGenericCommands()));
+          break;
+      }
+    }
+    requestResponseHandle.setRequestCompletionTime(System.currentTimeMillis());
+    responseQueue.put(requestResponseHandle);
+  }
+
   @Override
   public void run()
   {
     while (isAlive) {
       try {
-        PythonRequestResponse requestResponseHandle = requestQueue.poll(timeOutToPollFromRequestQueue,
-          timeUnitsToPollFromRequestQueue);
-        if (requestResponseHandle != null) {
-          PythonRequestResponse.PythonInterpreterRequest request = requestResponseHandle.getPythonInterpreterRequest();
-          PythonRequestResponse.PythonInterpreterResponse response =
-            requestResponseHandle.new PythonInterpreterResponse<>();
-          switch (request.getCommandType()) {
-            case EVAL_COMMAND:
-              response.setResponse(eval(request.getEvalCommand(),request.getVariableNameToExtractInEvalCall(),
-                request.getParamsForEvalCommand(),request.isDeleteVariableAfterEvalCall(),
-                request.getExpectedReturnType()));
-              break;
-            case SCRIPT_COMMAND:
-              executeScript(request.getScriptName(),request.getMethodParamsForScript());
-              break;
-            case METHOD_INVOCATION_COMMAND:
-              response.setResponse(executeMethodCall(request.getNameOfMethodForMethodCallInvocation(),
-                request.getArgsToMethodCallInvocation(), request.getExpectedReturnType()));
-              break;
-            case GENERIC_COMMANDS:
-              response.setResponse(runCommands(request.getGenericCommands()));
-              break;
-          }
-          requestResponseHandle.setRequestCompletionTime(System.currentTimeMillis());
-          responseQueue.put(requestResponseHandle);
+          processCommand();
         }
-      } catch (InterruptedException| ApexPythonInterpreterException e) {
+      catch (InterruptedException| ApexPythonInterpreterException e) {
         throw new RuntimeException(e);
       }
     }
