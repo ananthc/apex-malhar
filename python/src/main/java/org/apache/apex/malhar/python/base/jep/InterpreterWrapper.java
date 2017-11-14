@@ -17,6 +17,8 @@ import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class InterpreterWrapper
 {
   private static final Logger LOG = LoggerFactory.getLogger(InterpreterWrapper.class);
@@ -54,7 +56,7 @@ public class InterpreterWrapper
     interpreterThread.startInterpreter();
   }
 
-  private <T> PythonRequestResponse buildRequestObject(PythonRequestResponse.PythonCommandType commandType,
+  private <T> PythonRequestResponse<T> buildRequestObject(PythonRequestResponse.PythonCommandType commandType,
       long windowId,long requestId, Class<T> tClass)
   {
     PythonRequestResponse<T> requestResponse = new PythonRequestResponse();
@@ -68,8 +70,9 @@ public class InterpreterWrapper
     return requestResponse;
   }
 
-  private PythonRequestResponse processRequest(PythonRequestResponse request, long timeout,
-      TimeUnit timeUnit,List<PythonRequestResponse> stragglers) throws ApexPythonInterpreterException, TimeoutException
+  private <T> PythonRequestResponse<T> processRequest(PythonRequestResponse request, long timeout,
+      TimeUnit timeUnit,Class<T> clazz,List<PythonRequestResponse> stragglers) throws ApexPythonInterpreterException,
+      TimeoutException
   {
     List<PythonRequestResponse> drainedResults = new ArrayList<>();
     PythonRequestResponse currentRequestWithResponse = null;
@@ -99,42 +102,65 @@ public class InterpreterWrapper
     return currentRequestWithResponse;
   }
 
-  public Map<String, Boolean> runCommands(long windowId, long requestId,
-      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
+  public void runCommands(long windowId, long requestId,
+      List<String> commands, long timeout, TimeUnit timeUnit, List<PythonRequestResponse> stragglers)
+      throws ApexPythonInterpreterException, TimeoutException
   {
-    List<PythonRequestResponse> stragglers = new ArrayList<>();
+    checkNotNull(stragglers, "Straggler collection cannot be null reference");
     PythonRequestResponse requestResponse = buildRequestObject(PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS,
         windowId,requestId,Void.class);
     requestResponse.getPythonInterpreterRequest().setGenericCommands(commands);
-    processRequest(requestResponse,timeout,timeUnit,stragglers);
-    return null;
+    processRequest(requestResponse,timeout,timeUnit,Void.class,stragglers);
   }
 
-  public <T> T executeMethodCall(long windowId, long requestId,
+  public <T> PythonRequestResponse<T> executeMethodCall(long windowId, long requestId,
       String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
-      Class<T> expectedReturnType) throws ApexPythonInterpreterException, TimeoutException
+      Class<T> expectedReturnType, List<PythonRequestResponse> stragglers)
+      throws ApexPythonInterpreterException, TimeoutException
   {
-    return null;
+    checkNotNull(stragglers, "Straggler collection cannot be null reference");
+    PythonRequestResponse requestResponse = buildRequestObject(
+      PythonRequestResponse.PythonCommandType.METHOD_INVOCATION_COMMAND,
+      windowId,requestId,expectedReturnType);
+    requestResponse.getPythonInterpreterRequest().setNameOfMethodForMethodCallInvocation(nameOfGlobalMethod);
+    requestResponse.getPythonInterpreterRequest().setArgsToMethodCallInvocation(argsToGlobalMethod);
+    return processRequest(requestResponse,timeout,timeUnit,expectedReturnType,stragglers);
   }
 
   public void executeScript(long windowId, long requestId, String scriptName,
-      Map<String, Object> methodParams, long timeout, TimeUnit timeUnit)
+      Map<String, Object> methodParams, long timeout, TimeUnit timeUnit, List<PythonRequestResponse> stragglers)
       throws ApexPythonInterpreterException, TimeoutException
   {
-
+    checkNotNull(stragglers, "Straggler collection cannot be null reference");
+    PythonRequestResponse<Void> requestResponse = buildRequestObject(
+      PythonRequestResponse.PythonCommandType.SCRIPT_COMMAND,
+      windowId,requestId,Void.class);
+    PythonRequestResponse<Void>.PythonInterpreterRequest<Void> request = requestResponse.getPythonInterpreterRequest();
+    request.setScriptName(scriptName);
+    request.setMethodParamsForScript(methodParams);
+    processRequest(requestResponse,timeout,timeUnit,Void.class,stragglers);
   }
 
-  public <T> T eval(long windowId, long requestId,String command,
-      String variableNameToFetch, Map<String, Object> globalMethodsParams, long timeout, TimeUnit timeUnit,
-      boolean deleteExtractedVariable, Class<T> expectedReturnType)
+  public <T> PythonRequestResponse<T> eval(long windowId, long requestId,String command,
+      String variableNameToFetch, Map<String, Object> paramsForEval, long timeout, TimeUnit timeUnit,
+      boolean deleteExtractedVariable, Class<T> expectedReturnType, List<PythonRequestResponse> stragglers)
       throws ApexPythonInterpreterException,TimeoutException
   {
-    return null;
+    checkNotNull(stragglers, "Straggler collection cannot be null reference");
+    PythonRequestResponse<T> requestResponse = buildRequestObject(
+      PythonRequestResponse.PythonCommandType.EVAL_COMMAND,
+      windowId,requestId,expectedReturnType);
+    PythonRequestResponse<T>.PythonInterpreterRequest<T> request = requestResponse.getPythonInterpreterRequest();
+    request.setEvalCommand(command);
+    request.setVariableNameToExtractInEvalCall(variableNameToFetch);
+    request.setDeleteVariableAfterEvalCall(deleteExtractedVariable);
+    request.setParamsForEvalCommand(paramsForEval);
+    return processRequest(requestResponse,timeout,timeUnit,expectedReturnType,stragglers);
   }
 
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
-
+    interpreterThread.stopInterpreter();
   }
 
   public InterpreterThread getInterpreterThread()
