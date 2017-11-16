@@ -76,7 +76,7 @@ public class InterpreterThread implements Runnable
         .setInteractive(false)
         .setClassLoader(Thread.currentThread().getContextClassLoader()
     );
-    if (initConfigs.containsKey(PYTHON_INCLUDE_PATHS)){
+    if (initConfigs.containsKey(PYTHON_INCLUDE_PATHS)) {
       List<String> includePaths = (List<String>)initConfigs.get(PYTHON_INCLUDE_PATHS);
       if ( includePaths != null) {
         for (String anIncludePath: includePaths) {
@@ -92,8 +92,7 @@ public class InterpreterThread implements Runnable
   }
 
 
-  private Map<String,Boolean> runCommands(List<String> commands)
-      throws ApexPythonInterpreterException
+  private Map<String,Boolean> runCommands(List<String> commands) throws ApexPythonInterpreterException
   {
     Map<String,Boolean> resultsOfExecution = new HashMap<>();
     for (String aCommand : commands) {
@@ -134,7 +133,7 @@ public class InterpreterThread implements Runnable
   }
 
   private <T> T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams,
-    boolean deleteExtractedVariable,Class<T> expectedReturnType) throws ApexPythonInterpreterException
+      boolean deleteExtractedVariable,Class<T> expectedReturnType) throws ApexPythonInterpreterException
   {
     T variableToReturn = null;
     try {
@@ -166,17 +165,18 @@ public class InterpreterThread implements Runnable
   private <T> void processCommand() throws ApexPythonInterpreterException, InterruptedException
   {
     PythonRequestResponse requestResponseHandle = requestQueue.poll(timeOutToPollFromRequestQueue,
-      timeUnitsToPollFromRequestQueue);
+        timeUnitsToPollFromRequestQueue);
     if (requestResponseHandle != null) {
-      PythonRequestResponse<T>.PythonInterpreterRequest<T> request = requestResponseHandle.getPythonInterpreterRequest();
+      PythonRequestResponse<T>.PythonInterpreterRequest<T> request =
+          requestResponseHandle.getPythonInterpreterRequest();
       PythonRequestResponse<T>.PythonInterpreterResponse<T> response =
-        requestResponseHandle.getPythonInterpreterResponse();
+          requestResponseHandle.getPythonInterpreterResponse();
       Map<String,Boolean> commandStatus = new HashMap<>(1);
       switch (request.getCommandType()) {
         case EVAL_COMMAND:
           response.setResponse(eval(request.getEvalCommand(), request.getVariableNameToExtractInEvalCall(),
-            request.getParamsForEvalCommand(), request.isDeleteVariableAfterEvalCall(),
-            request.getExpectedReturnType()));
+              request.getParamsForEvalCommand(), request.isDeleteVariableAfterEvalCall(),
+              request.getExpectedReturnType()));
           commandStatus.put(request.getEvalCommand(),Boolean.TRUE);
           response.setCommandStatus(commandStatus);
           break;
@@ -186,13 +186,15 @@ public class InterpreterThread implements Runnable
           break;
         case METHOD_INVOCATION_COMMAND:
           response.setResponse(executeMethodCall(request.getNameOfMethodForMethodCallInvocation(),
-            request.getArgsToMethodCallInvocation(), request.getExpectedReturnType()));
+              request.getArgsToMethodCallInvocation(), request.getExpectedReturnType()));
           commandStatus.put(request.getNameOfMethodForMethodCallInvocation(),Boolean.TRUE);
           response.setCommandStatus(commandStatus);
           break;
         case GENERIC_COMMANDS:
           response.setCommandStatus(runCommands(request.getGenericCommands()));
           break;
+        default:
+          throw new ApexPythonInterpreterException(new Exception("Unspecified Interpreter command"));
       }
     }
     requestResponseHandle.setRequestCompletionTime(System.currentTimeMillis());
@@ -204,9 +206,8 @@ public class InterpreterThread implements Runnable
   {
     while (isAlive) {
       try {
-          processCommand();
-        }
-      catch (InterruptedException| ApexPythonInterpreterException e) {
+        processCommand();
+      } catch (InterruptedException | ApexPythonInterpreterException e) {
         throw new RuntimeException(e);
       }
     }

@@ -12,6 +12,8 @@ public abstract class AbstractApexPythonEngine implements ApexPythonEngine
 {
   private static final Logger LOG = LoggerFactory.getLogger(AbstractApexPythonEngine.class);
 
+  private int workerThreads = 3;
+
   @Override
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
   {

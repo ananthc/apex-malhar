@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
 import org.apache.apex.malhar.python.base.PythonRequestResponse;
-import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
@@ -32,10 +31,10 @@ public class InterpreterWrapper
   private int interpreterId;
 
   private transient BlockingQueue<PythonRequestResponse> requestQueue =
-    new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
+      new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
 
   private transient BlockingQueue<PythonRequestResponse> responseQueue =
-    new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
+      new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
 
   private transient BlockingQueue<PythonRequestResponse> delayedResponsesQueue;
 
@@ -71,91 +70,131 @@ public class InterpreterWrapper
   }
 
   private <T> PythonRequestResponse<T> processRequest(PythonRequestResponse request, long timeout,
-      TimeUnit timeUnit,Class<T> clazz,List<PythonRequestResponse> stragglers) throws ApexPythonInterpreterException,
-      TimeoutException
+      TimeUnit timeUnit,Class<T> clazz) throws ApexPythonInterpreterException,
+    TimeoutException
   {
     List<PythonRequestResponse> drainedResults = new ArrayList<>();
     PythonRequestResponse currentRequestWithResponse = null;
+    boolean isCurrentRequestProcessed = false;
+    // We first set a timer to see how long it actually it took for the response to arrive.
+    // It is possible that a response arrived due to a previous request and hence this need for the timer
+    // which tracks the time for the current request.
+    long currentStart = System.nanoTime();
+    long timeLeftToCompleteProcessing = timeout;
+    long currentTime = currentStart;
     // drain any previous responses that were returned while the Apex operator is processing
     responseQueue.drainTo(drainedResults);
     try {
-      requestQueue.put(request);
-      currentRequestWithResponse = responseQueue.poll(timeout,timeUnit); // ensures we are blocked till the time limit
-      if (currentRequestWithResponse != null) {
-        // add the last one that was just polled
-        drainedResults.add(currentRequestWithResponse);
+      for (PythonRequestResponse requestResponse : drainedResults) {
+        delayedResponsesQueue.put(requestResponse);
       }
-      // possible that there are other responses not belonging to the current request that might have arrived
-      responseQueue.drainTo(drainedResults);
-      long currentRequestId = request.getRequestId();
-      long currentWindowId = request.getWindowId();
-      for(PythonRequestResponse aReqRespObject: drainedResults) {
-        if ( (aReqRespObject.getWindowId() == currentWindowId) && (aReqRespObject.getRequestId() == currentRequestId)) {
-          currentRequestWithResponse = aReqRespObject;
-        } else {
-          stragglers.add(aReqRespObject);
-        }
-      }
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
+    } catch (InterruptedException ie) {
+      throw new RuntimeException(ie);
     }
-    return currentRequestWithResponse;
+    while ( (!isCurrentRequestProcessed) && ( timeLeftToCompleteProcessing > 0 )) {
+      try {
+        requestQueue.put(request);
+        currentRequestWithResponse = responseQueue.poll(timeout,timeUnit); // ensures we are blocked till the time limit
+        timeLeftToCompleteProcessing = timeLeftToCompleteProcessing - ( System.nanoTime() - currentStart ) ;
+        currentStart = System.nanoTime();
+        if (currentRequestWithResponse != null) {
+          if ( (request.getRequestId() == currentRequestWithResponse.getRequestId()) &&
+               (request.getWindowId() == currentRequestWithResponse.getWindowId()) ) {
+            isCurrentRequestProcessed = true;
+            break;
+          } else {
+            delayedResponsesQueue.put(currentRequestWithResponse);
+          }
+        }
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
+    }
+    if (isCurrentRequestProcessed) {
+      return currentRequestWithResponse;
+    } else {
+      return null;
+    }
+  }
+
+  private long calculateTimeOutInNanos(long timeout, TimeUnit timeUnit)
+  {
+    long allowedMax = Long.MIN_VALUE;
+    switch (timeUnit) {
+      case DAYS:
+        allowedMax = timeout * 24 * 60 * 60 * 1000 * 1000 * 1000;
+        break;
+      case HOURS:
+        allowedMax = timeout * 60 * 60 * 1000 * 1000 * 1000;
+        break;
+      case MINUTES:
+        allowedMax = timeout * 60 * 1000 * 1000 * 1000;
+        break;
+      case SECONDS:
+        allowedMax = timeout * 1000 * 1000 * 1000;
+        break;
+      case MILLISECONDS:
+        allowedMax = timeout * 1000 * 1000;
+        break;
+      case MICROSECONDS:
+        allowedMax = timeout * 1000;
+        break;
+      case NANOSECONDS:
+        allowedMax = timeout;
+        break;
+    }
+    return allowedMax;
   }
 
   public void runCommands(long windowId, long requestId,
-      List<String> commands, long timeout, TimeUnit timeUnit, List<PythonRequestResponse> stragglers)
-      throws ApexPythonInterpreterException, TimeoutException
+      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
   {
-    checkNotNull(stragglers, "Straggler collection cannot be null reference");
     PythonRequestResponse requestResponse = buildRequestObject(PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS,
         windowId,requestId,Void.class);
     requestResponse.getPythonInterpreterRequest().setGenericCommands(commands);
-    processRequest(requestResponse,timeout,timeUnit,Void.class,stragglers);
+    processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), TimeUnit.NANOSECONDS,Void.class);
   }
 
   public <T> PythonRequestResponse<T> executeMethodCall(long windowId, long requestId,
       String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
-      Class<T> expectedReturnType, List<PythonRequestResponse> stragglers)
-      throws ApexPythonInterpreterException, TimeoutException
+      Class<T> expectedReturnType)
+    throws ApexPythonInterpreterException, TimeoutException
   {
-    checkNotNull(stragglers, "Straggler collection cannot be null reference");
     PythonRequestResponse requestResponse = buildRequestObject(
-      PythonRequestResponse.PythonCommandType.METHOD_INVOCATION_COMMAND,
-      windowId,requestId,expectedReturnType);
+        PythonRequestResponse.PythonCommandType.METHOD_INVOCATION_COMMAND,
+        windowId,requestId,expectedReturnType);
     requestResponse.getPythonInterpreterRequest().setNameOfMethodForMethodCallInvocation(nameOfGlobalMethod);
     requestResponse.getPythonInterpreterRequest().setArgsToMethodCallInvocation(argsToGlobalMethod);
-    return processRequest(requestResponse,timeout,timeUnit,expectedReturnType,stragglers);
+    return processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), TimeUnit.NANOSECONDS,
+        expectedReturnType);
   }
 
   public void executeScript(long windowId, long requestId, String scriptName,
-      Map<String, Object> methodParams, long timeout, TimeUnit timeUnit, List<PythonRequestResponse> stragglers)
-      throws ApexPythonInterpreterException, TimeoutException
+      Map<String, Object> methodParams, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException,
+    TimeoutException
   {
-    checkNotNull(stragglers, "Straggler collection cannot be null reference");
     PythonRequestResponse<Void> requestResponse = buildRequestObject(
-      PythonRequestResponse.PythonCommandType.SCRIPT_COMMAND,
-      windowId,requestId,Void.class);
+        PythonRequestResponse.PythonCommandType.SCRIPT_COMMAND, windowId,requestId,Void.class);
     PythonRequestResponse<Void>.PythonInterpreterRequest<Void> request = requestResponse.getPythonInterpreterRequest();
     request.setScriptName(scriptName);
     request.setMethodParamsForScript(methodParams);
-    processRequest(requestResponse,timeout,timeUnit,Void.class,stragglers);
+    processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), TimeUnit.NANOSECONDS,Void.class);
   }
 
   public <T> PythonRequestResponse<T> eval(long windowId, long requestId,String command,
       String variableNameToFetch, Map<String, Object> paramsForEval, long timeout, TimeUnit timeUnit,
-      boolean deleteExtractedVariable, Class<T> expectedReturnType, List<PythonRequestResponse> stragglers)
-      throws ApexPythonInterpreterException,TimeoutException
+      boolean deleteExtractedVariable, Class<T> expectedReturnType)
+    throws ApexPythonInterpreterException,TimeoutException
   {
-    checkNotNull(stragglers, "Straggler collection cannot be null reference");
     PythonRequestResponse<T> requestResponse = buildRequestObject(
-      PythonRequestResponse.PythonCommandType.EVAL_COMMAND,
-      windowId,requestId,expectedReturnType);
+        PythonRequestResponse.PythonCommandType.EVAL_COMMAND, windowId,requestId,expectedReturnType);
     PythonRequestResponse<T>.PythonInterpreterRequest<T> request = requestResponse.getPythonInterpreterRequest();
     request.setEvalCommand(command);
     request.setVariableNameToExtractInEvalCall(variableNameToFetch);
     request.setDeleteVariableAfterEvalCall(deleteExtractedVariable);
     request.setParamsForEvalCommand(paramsForEval);
-    return processRequest(requestResponse,timeout,timeUnit,expectedReturnType,stragglers);
+    return processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), TimeUnit.NANOSECONDS,
+        expectedReturnType);
   }
 
   public void stopInterpreter() throws ApexPythonInterpreterException
