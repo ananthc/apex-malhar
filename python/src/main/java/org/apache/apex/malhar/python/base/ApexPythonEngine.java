@@ -15,19 +15,19 @@ public interface ApexPythonEngine
 
   void startInterpreter() throws ApexPythonInterpreterException;
 
-  Map<String,Boolean>  runCommands(WorkerExecutionMode executionMode, long windowId, long requestId,
+  void  runCommands(WorkerExecutionMode executionMode, long windowId, long requestId,
       List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException;
 
-  <T> T executeMethodCall(WorkerExecutionMode executionMode, long windowId, long requestId,
+  <T> PythonRequestResponse<T> executeMethodCall(long windowId, long requestId,
       String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
       Class<T> expectedReturnType) throws ApexPythonInterpreterException, TimeoutException;
 
-  void executeScript(WorkerExecutionMode executionMode,long windowId, long requestId,
+  void executeScript(long windowId, long requestId,
       String scriptName, Map<String,Object> methodParams, long timeout, TimeUnit timeUnit)
     throws ApexPythonInterpreterException, TimeoutException;
 
-  <T> T eval(WorkerExecutionMode executionMode, long windowId, long requestId, String command,
-      String variableNameToFetch, Map<String,Object> globalMethodsParams,long timeout, TimeUnit timeUnit,
+  <T> Map<Integer,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode, long windowId, long requestId,
+      String command, String variableNameToFetch, Map<String,Object> globalMethodsParams,long timeout,TimeUnit timeUnit,
       boolean deleteExtractedVariable, Class<T> expectedReturnType)
     throws ApexPythonInterpreterException,TimeoutException;
 

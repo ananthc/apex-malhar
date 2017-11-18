@@ -33,6 +33,8 @@ public class InterpreterThread implements Runnable
 
   private transient boolean isAlive = true;
 
+  private transient boolean isBusy = false;
+
   private long timeOutToPollFromRequestQueue = 5;
 
   private TimeUnit timeUnitsToPollFromRequestQueue = TimeUnit.MILLISECONDS;
@@ -167,6 +169,7 @@ public class InterpreterThread implements Runnable
     PythonRequestResponse requestResponseHandle = requestQueue.poll(timeOutToPollFromRequestQueue,
         timeUnitsToPollFromRequestQueue);
     if (requestResponseHandle != null) {
+      isBusy = true;
       PythonRequestResponse<T>.PythonInterpreterRequest<T> request =
           requestResponseHandle.getPythonInterpreterRequest();
       PythonRequestResponse<T>.PythonInterpreterResponse<T> response =
@@ -196,9 +199,10 @@ public class InterpreterThread implements Runnable
         default:
           throw new ApexPythonInterpreterException(new Exception("Unspecified Interpreter command"));
       }
+      requestResponseHandle.setRequestCompletionTime(System.currentTimeMillis());
+      responseQueue.put(requestResponseHandle);
     }
-    requestResponseHandle.setRequestCompletionTime(System.currentTimeMillis());
-    responseQueue.put(requestResponseHandle);
+    isBusy = false;
   }
 
   @Override
@@ -282,5 +286,15 @@ public class InterpreterThread implements Runnable
   public void setInitConfigs(Map<String, Object> initConfigs)
   {
     this.initConfigs = initConfigs;
+  }
+
+  public boolean isBusy()
+  {
+    return isBusy;
+  }
+
+  public void setBusy(boolean busy)
+  {
+    isBusy = busy;
   }
 }

@@ -16,7 +16,6 @@ import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
 
-import static com.google.common.base.Preconditions.checkNotNull;
 
 public class InterpreterWrapper
 {
@@ -42,6 +41,7 @@ public class InterpreterWrapper
   public InterpreterWrapper(int interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef)
   {
     delayedResponsesQueue = delayedResponsesQueueRef;
+    this.interpreterId = interpreterId;
     interpreterThread = new InterpreterThread(requestQueue,responseQueue);
   }
 
@@ -271,4 +271,11 @@ public class InterpreterWrapper
   {
     this.delayedResponsesQueue = delayedResponsesQueue;
   }
+
+  public boolean isCurrentlyBusy()
+  {
+    return interpreterThread.isBusy();
+  }
+
+
 }

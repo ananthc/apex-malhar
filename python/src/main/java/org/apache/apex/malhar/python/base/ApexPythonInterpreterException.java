@@ -9,4 +9,9 @@ public class ApexPythonInterpreterException extends Exception
   {
     super(cause);
   }
+
+  public ApexPythonInterpreterException(String message)
+  {
+    super(message);
+  }
 }
