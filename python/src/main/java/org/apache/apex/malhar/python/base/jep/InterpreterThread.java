@@ -31,7 +31,7 @@ public class InterpreterThread implements Runnable
 
   public transient Jep JEP_INSTANCE;
 
-  private transient boolean isAlive = true;
+  private transient volatile boolean isStopped = false;
 
   private transient boolean isBusy = false;
 
@@ -160,7 +160,7 @@ public class InterpreterThread implements Runnable
 
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
-    isAlive = false;
+    isStopped = true;
     JEP_INSTANCE.close();
   }
 
@@ -208,7 +208,7 @@ public class InterpreterThread implements Runnable
   @Override
   public void run()
   {
-    while (isAlive) {
+    while (!isStopped) {
       try {
         processCommand();
       } catch (InterruptedException | ApexPythonInterpreterException e) {
@@ -216,7 +216,6 @@ public class InterpreterThread implements Runnable
       }
     }
   }
-
 
   public Jep getJEP_INSTANCE()
   {
@@ -226,16 +225,6 @@ public class InterpreterThread implements Runnable
   public void setJEP_INSTANCE(Jep JEP_INSTANCE)
   {
     this.JEP_INSTANCE = JEP_INSTANCE;
-  }
-
-  public boolean isAlive()
-  {
-    return isAlive;
-  }
-
-  public void setAlive(boolean alive)
-  {
-    isAlive = alive;
   }
 
   public long getTimeOutToPollFromRequestQueue()
@@ -256,6 +245,16 @@ public class InterpreterThread implements Runnable
   public void setTimeUnitsToPollFromRequestQueue(TimeUnit timeUnitsToPollFromRequestQueue)
   {
     this.timeUnitsToPollFromRequestQueue = timeUnitsToPollFromRequestQueue;
+  }
+
+  public boolean isStopped()
+  {
+    return isStopped;
+  }
+
+  public void setStopped(boolean stopped)
+  {
+    isStopped = stopped;
   }
 
   public BlockingQueue<PythonRequestResponse> getRequestQueue()

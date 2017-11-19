@@ -15,6 +15,8 @@ public interface ApexPythonEngine
 
   void startInterpreter() throws ApexPythonInterpreterException;
 
+  void postStartInterpreter() throws ApexPythonInterpreterException;
+
   void  runCommands(WorkerExecutionMode executionMode, long windowId, long requestId,
       List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException;
 

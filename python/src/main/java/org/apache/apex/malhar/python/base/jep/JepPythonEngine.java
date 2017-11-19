@@ -20,11 +20,15 @@ import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
 import com.google.common.primitives.Ints;
 
-public abstract class JepPythonEngine implements ApexPythonEngine
+public class JepPythonEngine implements ApexPythonEngine
 {
   private static final Logger LOG = LoggerFactory.getLogger(JepPythonEngine.class);
 
   private int numWorkerThreads = 3;
+
+  private static final String JEP_LIBRARY_NAME = "jep";
+
+  private transient List<PythonRequestResponse> commandHistory = new ArrayList<>();
 
   private transient SpinPolicy cpuSpinPolicyForWaitingInBuffer = SpinPolicy.WAITING;
 
@@ -38,16 +42,16 @@ public abstract class JepPythonEngine implements ApexPythonEngine
   public JepPythonEngine(int numWorkerThreads)
   {
     this.numWorkerThreads = numWorkerThreads;
-    initWorkers();
   }
 
   public JepPythonEngine()
   {
-    initWorkers();
+
   }
 
   private void initWorkers()
   {
+    System.loadLibrary(JEP_LIBRARY_NAME);
     for ( int i=0; i < numWorkerThreads; i++) {
       InterpreterWrapper aWorker = new InterpreterWrapper(i,delayedResponseQueue);
       workers.add(aWorker);
@@ -89,8 +93,17 @@ public abstract class JepPythonEngine implements ApexPythonEngine
   @Override
   public void startInterpreter() throws ApexPythonInterpreterException
   {
+    initWorkers();
     for ( InterpreterWrapper wrapper : workers) {
       wrapper.startInterpreter();
+    }
+  }
+
+  @Override
+  public void postStartInterpreter() throws ApexPythonInterpreterException
+  {
+    for ( InterpreterWrapper wrapper : workers) {
+      wrapper.; excute history here 
     }
   }
 
@@ -185,5 +198,35 @@ public abstract class JepPythonEngine implements ApexPythonEngine
     for ( InterpreterWrapper wrapper : workers) {
       wrapper.stopInterpreter();
     }
+  }
+
+  public int getNumWorkerThreads()
+  {
+    return numWorkerThreads;
+  }
+
+  public void setNumWorkerThreads(int numWorkerThreads)
+  {
+    this.numWorkerThreads = numWorkerThreads;
+  }
+
+  public List<InterpreterWrapper> getWorkers()
+  {
+    return workers;
+  }
+
+  public void setWorkers(List<InterpreterWrapper> workers)
+  {
+    this.workers = workers;
+  }
+
+  public List<PythonRequestResponse> getCommandHistory()
+  {
+    return commandHistory;
+  }
+
+  public void setCommandHistory(List<PythonRequestResponse> commandHistory)
+  {
+    this.commandHistory = commandHistory;
   }
 }

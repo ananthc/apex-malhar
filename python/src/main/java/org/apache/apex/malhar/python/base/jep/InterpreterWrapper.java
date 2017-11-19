@@ -4,6 +4,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -29,6 +32,10 @@ public class InterpreterWrapper
 
   private int interpreterId;
 
+  private Future<?> handleToJepRunner;
+
+  private ExecutorService executorService = Executors.newSingleThreadExecutor();
+
   private transient BlockingQueue<PythonRequestResponse> requestQueue =
       new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
 
@@ -53,6 +60,7 @@ public class InterpreterWrapper
   public void startInterpreter() throws ApexPythonInterpreterException
   {
     interpreterThread.startInterpreter();
+    handleToJepRunner = executorService.submit(interpreterThread);
   }
 
   private <T> PythonRequestResponse<T> buildRequestObject(PythonRequestResponse.PythonCommandType commandType,
@@ -76,12 +84,6 @@ public class InterpreterWrapper
     List<PythonRequestResponse> drainedResults = new ArrayList<>();
     PythonRequestResponse currentRequestWithResponse = null;
     boolean isCurrentRequestProcessed = false;
-    // We first set a timer to see how long it actually it took for the response to arrive.
-    // It is possible that a response arrived due to a previous request and hence this need for the timer
-    // which tracks the time for the current request.
-    long currentStart = System.nanoTime();
-    long timeLeftToCompleteProcessing = timeout;
-    long currentTime = currentStart;
     // drain any previous responses that were returned while the Apex operator is processing
     responseQueue.drainTo(drainedResults);
     try {
@@ -91,10 +93,16 @@ public class InterpreterWrapper
     } catch (InterruptedException ie) {
       throw new RuntimeException(ie);
     }
+    // We first set a timer to see how long it actually it took for the response to arrive.
+    // It is possible that a response arrived due to a previous request and hence this need for the timer
+    // which tracks the time for the current request.
+    long currentStart = System.nanoTime();
+    long timeLeftToCompleteProcessing = timeout;
     while ( (!isCurrentRequestProcessed) && ( timeLeftToCompleteProcessing > 0 )) {
       try {
         requestQueue.put(request);
-        currentRequestWithResponse = responseQueue.poll(timeout,timeUnit); // ensures we are blocked till the time limit
+        // ensures we are blocked till the time limit
+        currentRequestWithResponse = responseQueue.poll(timeout,TimeUnit.NANOSECONDS);
         timeLeftToCompleteProcessing = timeLeftToCompleteProcessing - ( System.nanoTime() - currentStart ) ;
         currentStart = System.nanoTime();
         if (currentRequestWithResponse != null) {
@@ -199,7 +207,10 @@ public class InterpreterWrapper
 
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
+    interpreterThread.setStopped(true);
+    handleToJepRunner.cancel(false);
     interpreterThread.stopInterpreter();
+    executorService.shutdown();
   }
 
   public InterpreterThread getInterpreterThread()
