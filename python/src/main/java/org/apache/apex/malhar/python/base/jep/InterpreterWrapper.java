@@ -103,11 +103,11 @@ public class InterpreterWrapper
         requestQueue.put(request);
         // ensures we are blocked till the time limit
         currentRequestWithResponse = responseQueue.poll(timeout,TimeUnit.NANOSECONDS);
-        timeLeftToCompleteProcessing = timeLeftToCompleteProcessing - ( System.nanoTime() - currentStart ) ;
+        timeLeftToCompleteProcessing = timeLeftToCompleteProcessing - ( System.nanoTime() - currentStart );
         currentStart = System.nanoTime();
         if (currentRequestWithResponse != null) {
           if ( (request.getRequestId() == currentRequestWithResponse.getRequestId()) &&
-               (request.getWindowId() == currentRequestWithResponse.getWindowId()) ) {
+              (request.getWindowId() == currentRequestWithResponse.getWindowId()) ) {
             isCurrentRequestProcessed = true;
             break;
           } else {
@@ -148,6 +148,7 @@ public class InterpreterWrapper
         allowedMax = timeout * 1000;
         break;
       case NANOSECONDS:
+      default:
         allowedMax = timeout;
         break;
     }

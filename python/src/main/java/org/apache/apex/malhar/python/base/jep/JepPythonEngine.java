@@ -35,7 +35,7 @@ public class JepPythonEngine implements ApexPythonEngine
   private int bufferCapacity = 64; // Represents the number of workers and response queue sizes
 
   private transient BlockingQueue<PythonRequestResponse> delayedResponseQueue =
-    new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
+      new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
 
   private List<InterpreterWrapper> workers = new ArrayList<>();
 
@@ -52,7 +52,7 @@ public class JepPythonEngine implements ApexPythonEngine
   private void initWorkers()
   {
     System.loadLibrary(JEP_LIBRARY_NAME);
-    for ( int i=0; i < numWorkerThreads; i++) {
+    for ( int i = 0; i < numWorkerThreads; i++) {
       InterpreterWrapper aWorker = new InterpreterWrapper(i,delayedResponseQueue);
       workers.add(aWorker);
     }
@@ -60,28 +60,29 @@ public class JepPythonEngine implements ApexPythonEngine
 
   private InterpreterWrapper selectWorkerForCurrentCall(long requestId)
   {
-     int slotToLookFor = Ints.saturatedCast(requestId) % numWorkerThreads;
-     boolean isWorkerFound = false;
-     int numWorkersScannedForAvailability = 0;
-     InterpreterWrapper aWorker = null;
-     while ( (!isWorkerFound) && (numWorkersScannedForAvailability < numWorkerThreads)) {
-       aWorker = workers.get(slotToLookFor);
-       numWorkersScannedForAvailability  = numWorkersScannedForAvailability + 1;
-       if (!aWorker.isCurrentlyBusy()) {
-         isWorkerFound = true;
-       } else {
-         slotToLookFor = slotToLookFor + 1;
-         if ( slotToLookFor == numWorkerThreads) {
-           slotToLookFor = 0;
-         }
-       }
-     }
-     if (isWorkerFound) {
-       return aWorker;
-     } else {
-       return null;
-     }
+    int slotToLookFor = Ints.saturatedCast(requestId) % numWorkerThreads;
+    boolean isWorkerFound = false;
+    int numWorkersScannedForAvailability = 0;
+    InterpreterWrapper aWorker = null;
+    while ( (!isWorkerFound) && (numWorkersScannedForAvailability < numWorkerThreads)) {
+      aWorker = workers.get(slotToLookFor);
+      numWorkersScannedForAvailability  = numWorkersScannedForAvailability + 1;
+      if (!aWorker.isCurrentlyBusy()) {
+        isWorkerFound = true;
+      } else {
+        slotToLookFor = slotToLookFor + 1;
+        if ( slotToLookFor == numWorkerThreads) {
+          slotToLookFor = 0;
+        }
+      }
+    }
+    if (isWorkerFound) {
+      return aWorker;
+    } else {
+      return null;
+    }
   }
+
   @Override
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
   {
@@ -174,8 +175,8 @@ public class JepPythonEngine implements ApexPythonEngine
 
   @Override
   public Map<Integer,PythonRequestResponse>  executeScript(WorkerExecutionMode executionMode,long windowId,
-    long requestId, String scriptName, Map<String, Object> scriptParams, long timeout, TimeUnit timeUnit)
-      throws ApexPythonInterpreterException,TimeoutException
+      long requestId, String scriptName, Map<String, Object> scriptParams, long timeout, TimeUnit timeUnit)
+    throws ApexPythonInterpreterException,TimeoutException
   {
     Map<Integer,PythonRequestResponse> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
@@ -205,8 +206,8 @@ public class JepPythonEngine implements ApexPythonEngine
   @Override
   public <T> Map<Integer,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode,long windowId, long requestId,
       String command, String variableNameToFetch,Map<String, Object> globalMethodsParams,long timeout,TimeUnit timeUnit,
-      boolean deleteExtractedVariable, Class<T> expectedReturnType)
-      throws ApexPythonInterpreterException, TimeoutException
+      boolean deleteExtractedVariable,Class<T> expectedReturnType)
+    throws ApexPythonInterpreterException,TimeoutException
   {
     Map<Integer,PythonRequestResponse<T>> statusOfEval = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;

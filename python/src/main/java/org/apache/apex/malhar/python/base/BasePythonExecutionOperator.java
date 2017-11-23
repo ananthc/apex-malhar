@@ -19,8 +19,7 @@ import com.datatorrent.common.util.BaseOperator;
 
 @Stateless
 public abstract class BasePythonExecutionOperator<T> extends BaseOperator implements
-  Operator.ActivationListener<Context.OperatorContext>,
-  Partitioner<BasePythonExecutionOperator>, StatsListener
+    Operator.ActivationListener<Context.OperatorContext>, Partitioner<BasePythonExecutionOperator>, StatsListener
 {
   private static final Logger LOG = LoggerFactory.getLogger(BasePythonExecutionOperator.class);
 
