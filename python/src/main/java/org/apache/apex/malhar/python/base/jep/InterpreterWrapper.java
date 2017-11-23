@@ -77,13 +77,13 @@ public class InterpreterWrapper
     return requestResponse;
   }
 
-  private <T> PythonRequestResponse<T> processRequest(PythonRequestResponse request, long timeout,
-      TimeUnit timeUnit,Class<T> clazz) throws ApexPythonInterpreterException,
-    TimeoutException
+  public <T> PythonRequestResponse<T> processRequest(PythonRequestResponse request, long timeout,
+      Class<T> clazz) throws ApexPythonInterpreterException, TimeoutException
   {
     List<PythonRequestResponse> drainedResults = new ArrayList<>();
     PythonRequestResponse currentRequestWithResponse = null;
     boolean isCurrentRequestProcessed = false;
+    request.getPythonInterpreterRequest().setTimeOutInNanos(timeout); // To be used in command history invocation
     // drain any previous responses that were returned while the Apex operator is processing
     responseQueue.drainTo(drainedResults);
     try {
@@ -154,13 +154,14 @@ public class InterpreterWrapper
     return allowedMax;
   }
 
-  public void runCommands(long windowId, long requestId,
+  public PythonRequestResponse runCommands(long windowId, long requestId,
       List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
   {
     PythonRequestResponse requestResponse = buildRequestObject(PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS,
         windowId,requestId,Void.class);
     requestResponse.getPythonInterpreterRequest().setGenericCommands(commands);
-    processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), TimeUnit.NANOSECONDS,Void.class);
+    processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit),Void.class);
+    return requestResponse;
   }
 
   public <T> PythonRequestResponse<T> executeMethodCall(long windowId, long requestId,
@@ -173,11 +174,10 @@ public class InterpreterWrapper
         windowId,requestId,expectedReturnType);
     requestResponse.getPythonInterpreterRequest().setNameOfMethodForMethodCallInvocation(nameOfGlobalMethod);
     requestResponse.getPythonInterpreterRequest().setArgsToMethodCallInvocation(argsToGlobalMethod);
-    return processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), TimeUnit.NANOSECONDS,
-        expectedReturnType);
+    return processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), expectedReturnType);
   }
 
-  public void executeScript(long windowId, long requestId, String scriptName,
+  public PythonRequestResponse executeScript(long windowId, long requestId, String scriptName,
       Map<String, Object> methodParams, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException,
     TimeoutException
   {
@@ -186,7 +186,8 @@ public class InterpreterWrapper
     PythonRequestResponse<Void>.PythonInterpreterRequest<Void> request = requestResponse.getPythonInterpreterRequest();
     request.setScriptName(scriptName);
     request.setMethodParamsForScript(methodParams);
-    processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), TimeUnit.NANOSECONDS,Void.class);
+    processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit),Void.class);
+    return requestResponse;
   }
 
   public <T> PythonRequestResponse<T> eval(long windowId, long requestId,String command,
@@ -201,8 +202,7 @@ public class InterpreterWrapper
     request.setVariableNameToExtractInEvalCall(variableNameToFetch);
     request.setDeleteVariableAfterEvalCall(deleteExtractedVariable);
     request.setParamsForEvalCommand(paramsForEval);
-    return processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), TimeUnit.NANOSECONDS,
-        expectedReturnType);
+    return processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit), expectedReturnType);
   }
 
   public void stopInterpreter() throws ApexPythonInterpreterException

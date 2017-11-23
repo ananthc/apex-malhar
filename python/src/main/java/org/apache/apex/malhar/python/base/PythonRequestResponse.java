@@ -84,11 +84,9 @@ public class PythonRequestResponse<T>
   {
     PythonCommandType commandType;
 
-
-
     List<String> genericCommands;
 
-    long timeOut;
+    long timeOutInNanos;
 
     TimeUnit timeUnit;
 
@@ -120,14 +118,14 @@ public class PythonRequestResponse<T>
       this.commandType = commandType;
     }
 
-    public long getTimeOut()
+    public long getTimeOutInNanos()
     {
-      return timeOut;
+      return timeOutInNanos;
     }
 
-    public void setTimeOut(long timeOut)
+    public void setTimeOutInNanos(long timeOutInNanos)
     {
-      this.timeOut = timeOut;
+      this.timeOutInNanos = timeOutInNanos;
     }
 
     public TimeUnit getTimeUnit()

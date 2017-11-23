@@ -15,16 +15,16 @@ public interface ApexPythonEngine
 
   void startInterpreter() throws ApexPythonInterpreterException;
 
-  void postStartInterpreter() throws ApexPythonInterpreterException;
+  void postStartInterpreter() throws ApexPythonInterpreterException, TimeoutException;
 
-  void  runCommands(WorkerExecutionMode executionMode, long windowId, long requestId,
+  Map<Integer,PythonRequestResponse> runCommands(WorkerExecutionMode executionMode, long windowId, long requestId,
       List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException;
 
-  <T> PythonRequestResponse<T> executeMethodCall(long windowId, long requestId,
-      String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
+  <T> Map<Integer,PythonRequestResponse<T>> executeMethodCall(WorkerExecutionMode executionMode,long windowId,
+      long requestId, String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
       Class<T> expectedReturnType) throws ApexPythonInterpreterException, TimeoutException;
 
-  void executeScript(long windowId, long requestId,
+  Map<Integer,PythonRequestResponse>  executeScript(WorkerExecutionMode executionMode,long windowId, long requestId,
       String scriptName, Map<String,Object> methodParams, long timeout, TimeUnit timeUnit)
     throws ApexPythonInterpreterException, TimeoutException;
 
