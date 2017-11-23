@@ -2,6 +2,7 @@ package org.apache.apex.malhar.python.base;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -66,7 +67,8 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     try {
       apexPythonEngine.preInitInterpreter(getPreInitConfigurations());
       apexPythonEngine.startInterpreter();
-    } catch (ApexPythonInterpreterException e) {
+      apexPythonEngine.postStartInterpreter();
+    } catch (ApexPythonInterpreterException| TimeoutException e) {
       throw new RuntimeException(e);
     }
   }
