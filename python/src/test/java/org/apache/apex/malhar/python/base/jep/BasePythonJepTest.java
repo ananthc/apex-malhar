@@ -18,13 +18,13 @@ import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
 
 
-public class InterpreterThreadTest
+public class BasePythonJepTest
 {
 
   @Rule
   public PythonAvailabilityTestRule jepAvailabilityBasedTest = new PythonAvailabilityTestRule();
 
-  private static final transient Logger LOG = LoggerFactory.getLogger(InterpreterThreadTest.class);
+  private static final transient Logger LOG = LoggerFactory.getLogger(BasePythonJepTest.class);
 
   static InterpreterThread pythonEngineThread;
 

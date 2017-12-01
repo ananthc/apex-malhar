@@ -24,7 +24,7 @@ import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.apex.malhar.python.base.jep.InterpreterThreadTest;
+import org.apache.apex.malhar.python.base.jep.BasePythonJepTest;
 
 /**
  * A Junit rule that helps in bypassing tests that cannot be done if the kudu cluster is not present.
@@ -49,7 +49,7 @@ public class PythonAvailabilityTestRule implements TestRule
         runThisTest = false;
       }
       if ((jepLibraryEnabledValue == null) && (testContext.jepPythonBasedTest())) {
-        runThisTest = false;
+        runThisTest = true;
       }
       if ((jepLibraryEnabledValue == null) && (!testContext.jepPythonBasedTest())) {
         runThisTest = false;
@@ -58,7 +58,7 @@ public class PythonAvailabilityTestRule implements TestRule
     if (runThisTest) {
       // Run the original test
       try {
-        InterpreterThreadTest.testThreadInit();
+        BasePythonJepTest.testThreadInit();
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
