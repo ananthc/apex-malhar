@@ -24,50 +24,48 @@ import org.junit.runners.model.Statement;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.apex.malhar.python.base.jep.BasePythonJepTest;
+import org.apache.apex.malhar.python.base.jep.BaseJEPTest;
 
 /**
- * A Junit rule that helps in bypassing tests that cannot be done if the kudu cluster is not present.
+ * A Junit rule that helps in bypassing tests that cannot be done if the Python installation is not present.
  */
 public class PythonAvailabilityTestRule implements TestRule
 {
 
   private static final transient Logger LOG = LoggerFactory.getLogger(PythonAvailabilityTestRule.class);
 
-  public static final String JEP_LIBRARY_PATH_ENV_SWITCH = "jepPythonInstalled";
+  public static final String JEP_LIBRARY_INSTALLED_SWITCH = "jepInstalled";
+
   @Override
   public Statement apply(Statement base, Description description)
   {
     JepPythonTestContext testContext = description.getAnnotation(JepPythonTestContext.class);
-    String jepLibraryEnabledValue = System.getProperty(JEP_LIBRARY_PATH_ENV_SWITCH);
-    boolean runThisTest = false; // default is not to run the test if no annotation is specified
+    String jepInstalledStrVal = System.getProperty(JEP_LIBRARY_INSTALLED_SWITCH);
+    boolean jepInstalled = false;
+    if (jepInstalledStrVal != null) {
+      jepInstalled = Boolean.valueOf(jepInstalledStrVal);
+    }
+    boolean runThisTest = true; // default is to run the test if no annotation is specified i.e. python is not required
     if ( testContext != null) {
-      if ((jepLibraryEnabledValue != null) && (testContext.jepPythonBasedTest())) {
+      if ( (testContext.jepPythonBasedTest()) && (jepInstalled) ) {
         runThisTest = true;
-      }
-      if ((jepLibraryEnabledValue != null) && (!testContext.jepPythonBasedTest())) {
-        runThisTest = false;
-      }
-      if ((jepLibraryEnabledValue == null) && (testContext.jepPythonBasedTest())) {
-        runThisTest = true;
-      }
-      if ((jepLibraryEnabledValue == null) && (!testContext.jepPythonBasedTest())) {
+      } else {
         runThisTest = false;
       }
     }
     if (runThisTest) {
-      // Run the original test
-      try {
-        BasePythonJepTest.testThreadInit();
-      } catch (Exception e) {
-        throw new RuntimeException(e);
+      if ( (jepInstalled) && (!BaseJEPTest.JEP_INITIALIZED)) {
+        try {
+          BaseJEPTest.initJEP();
+        } catch (Exception e) {
+          throw new RuntimeException(e);
+        }
       }
       return base;
     } else {
       // bypass the test altogether
       return new Statement()
       {
-
         @Override
         public void evaluate() throws Throwable
         {
@@ -75,7 +73,6 @@ public class PythonAvailabilityTestRule implements TestRule
         }
       };
     }
-
   }
 
 }
