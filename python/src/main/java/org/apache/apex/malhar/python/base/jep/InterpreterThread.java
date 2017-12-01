@@ -54,6 +54,7 @@ public class InterpreterThread implements Runnable
 
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
   {
+    LOG.info("Java library path being used is: " + System.getProperty("java.library.path"));
     System.loadLibrary(JEP_LIBRARY_NAME);
   }
 

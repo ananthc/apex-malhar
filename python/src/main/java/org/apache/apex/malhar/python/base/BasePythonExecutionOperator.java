@@ -68,7 +68,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
       apexPythonEngine.preInitInterpreter(getPreInitConfigurations());
       apexPythonEngine.startInterpreter();
       apexPythonEngine.postStartInterpreter();
-    } catch (ApexPythonInterpreterException| TimeoutException e) {
+    } catch (ApexPythonInterpreterException | TimeoutException e) {
       throw new RuntimeException(e);
     }
   }
