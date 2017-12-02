@@ -33,7 +33,7 @@ public class BaseJEPTest extends BasePythonTest
       new DisruptorBlockingQueue<PythonRequestResponse>(8,SpinPolicy.WAITING);
 
 
-  public static void initJEP() throws Exception
+  public static void initJEPThread() throws Exception
   {
     if (!JEP_INITIALIZED) {
       synchronized (lockToInitializeJEP) {
@@ -46,5 +46,22 @@ public class BaseJEPTest extends BasePythonTest
         }
       }
     }
+  }
+
+  public PythonRequestResponse<Void> buildRequestResponseObjectForVoidPayload(
+      PythonRequestResponse.PythonCommandType commandType) throws Exception
+  {
+    PythonRequestResponse<Void> requestResponse = new PythonRequestResponse();
+    PythonRequestResponse<Void>.PythonInterpreterRequest<Void> request =
+        requestResponse.new PythonInterpreterRequest<>();
+    PythonRequestResponse<Void>.PythonInterpreterResponse<Void> response =
+        requestResponse.new PythonInterpreterResponse<>(Void.class);
+    requestResponse.setPythonInterpreterRequest(request);
+    requestResponse.setPythonInterpreterResponse(response);
+    request.setCommandType(commandType);
+    requestResponse.setRequestStartTime(System.currentTimeMillis());
+    requestResponse.setRequestId(1L);
+    requestResponse.setWindowId(1L);
+    return requestResponse;
   }
 }

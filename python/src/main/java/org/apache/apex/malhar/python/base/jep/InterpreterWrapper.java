@@ -59,7 +59,6 @@ public class InterpreterWrapper
 
   public void startInterpreter() throws ApexPythonInterpreterException
   {
-    interpreterThread.startInterpreter();
     handleToJepRunner = executorService.submit(interpreterThread);
   }
 
@@ -70,6 +69,8 @@ public class InterpreterWrapper
     PythonRequestResponse<T>.PythonInterpreterRequest<T> request = requestResponse.new PythonInterpreterRequest<>();
     PythonRequestResponse<T>.PythonInterpreterResponse<T> response =
         requestResponse.new PythonInterpreterResponse<>(tClass);
+    requestResponse.setPythonInterpreterRequest(request);
+    requestResponse.setPythonInterpreterResponse(response);
     request.setCommandType(commandType);
     requestResponse.setRequestStartTime(System.currentTimeMillis());
     requestResponse.setRequestId(requestId);

@@ -56,7 +56,7 @@ public class PythonAvailabilityTestRule implements TestRule
     if (runThisTest) {
       if ( (jepInstalled) && (!BaseJEPTest.JEP_INITIALIZED)) {
         try {
-          BaseJEPTest.initJEP();
+          BaseJEPTest.initJEPThread();
         } catch (Exception e) {
           throw new RuntimeException(e);
         }

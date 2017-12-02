@@ -50,6 +50,7 @@ public class InterpreterThread implements Runnable
   {
     this.requestQueue = requestQueue;
     this.responseQueue = responseQueue;
+    this.isStopped = false;
   }
 
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
@@ -67,13 +68,12 @@ public class InterpreterThread implements Runnable
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
   {
     initConfigs.putAll(preInitConfigs);
-    loadMandatoryJVMLibraries();
   }
 
 
   public void startInterpreter() throws ApexPythonInterpreterException
   {
-
+    loadMandatoryJVMLibraries();
     JepConfig config = new JepConfig()
         .setRedirectOutputStreams(true)
         .setInteractive(false)
@@ -167,6 +167,7 @@ public class InterpreterThread implements Runnable
 
   private <T> void processCommand() throws ApexPythonInterpreterException, InterruptedException
   {
+    LOG.debug("Processing command ");
     PythonRequestResponse requestResponseHandle = requestQueue.poll(timeOutToPollFromRequestQueue,
         timeUnitsToPollFromRequestQueue);
     if (requestResponseHandle != null) {
@@ -209,6 +210,14 @@ public class InterpreterThread implements Runnable
   @Override
   public void run()
   {
+    LOG.info("Starting the execution of processing " );
+    if (JEP_INSTANCE == null) {
+      try {
+        startInterpreter();
+      } catch (ApexPythonInterpreterException e) {
+        throw new RuntimeException(e);
+      }
+    }
     while (!isStopped) {
       try {
         processCommand();
