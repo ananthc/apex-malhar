@@ -40,7 +40,6 @@ public class BaseJEPTest extends BasePythonTest
         if (!JEP_INITIALIZED) {
           pythonEngineThread = new InterpreterThread(requestQueue,responseQueue);
           pythonEngineThread.preInitInterpreter(new HashMap<String,Object>());
-          pythonEngineThread.startInterpreter();
           executorService.submit(pythonEngineThread);
           JEP_INITIALIZED = true;
         }

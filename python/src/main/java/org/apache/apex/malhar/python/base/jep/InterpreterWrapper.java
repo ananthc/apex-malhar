@@ -211,7 +211,6 @@ public class InterpreterWrapper
   {
     interpreterThread.setStopped(true);
     handleToJepRunner.cancel(false);
-    interpreterThread.stopInterpreter();
     executorService.shutdown();
   }
 

@@ -50,7 +50,6 @@ public class InterpreterThread implements Runnable
   {
     this.requestQueue = requestQueue;
     this.responseQueue = responseQueue;
-    this.isStopped = false;
   }
 
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
@@ -224,6 +223,11 @@ public class InterpreterThread implements Runnable
       } catch (InterruptedException | ApexPythonInterpreterException e) {
         throw new RuntimeException(e);
       }
+    }
+    try {
+      stopInterpreter();
+    } catch (ApexPythonInterpreterException e) {
+      throw new RuntimeException(e);
     }
   }
 

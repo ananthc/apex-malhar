@@ -22,7 +22,7 @@ public class InterpreterThreadTest extends BaseJEPTest
     long currentTime = System.currentTimeMillis();
     List<String> commands = new ArrayList();
     commands.add("fileHandle  = open('/tmp/testRunCommands.txt', 'w')");
-    commands.add("fileHandle.write(" + currentTime + ")");
+    commands.add("fileHandle.write('" + currentTime + "')");
     commands.add("fileHandle.close()");
     PythonRequestResponse<Void> runCommandsRequest = buildRequestResponseObjectForVoidPayload(
         PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
