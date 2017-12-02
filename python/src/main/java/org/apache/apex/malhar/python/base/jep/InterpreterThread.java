@@ -43,13 +43,16 @@ public class InterpreterThread implements Runnable
 
   private transient BlockingQueue<PythonRequestResponse> responseQueue;
 
+  private String threadID;
+
   private Map<String,Object> initConfigs = new HashMap<>();
 
   public InterpreterThread(BlockingQueue<PythonRequestResponse> requestQueue,
-      BlockingQueue<PythonRequestResponse> responseQueue)
+      BlockingQueue<PythonRequestResponse> responseQueue,String threadID)
   {
     this.requestQueue = requestQueue;
     this.responseQueue = responseQueue;
+    this.threadID = threadID;
   }
 
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
@@ -72,6 +75,7 @@ public class InterpreterThread implements Runnable
 
   public void startInterpreter() throws ApexPythonInterpreterException
   {
+    Thread.currentThread().setName(threadID);
     loadMandatoryJVMLibraries();
     JepConfig config = new JepConfig()
         .setRedirectOutputStreams(true)

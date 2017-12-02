@@ -28,6 +28,8 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   private transient ApexPythonEngine apexPythonEngine;
 
+  private int workerThreadPoolSize = 3;
+
   @InputPortFieldAnnotation
   public final transient DefaultInputPort<T> input = new DefaultInputPort<T>()
   {
@@ -54,16 +56,16 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   }
 
-  protected ApexPythonEngine initApexPythonEngineImpl()
+  protected ApexPythonEngine initApexPythonEngineImpl(Context.OperatorContext context)
   {
-    return new JepPythonEngine();
+    return new JepPythonEngine(""+context.getId(),workerThreadPoolSize);
   }
 
   @Override
   public void setup(Context.OperatorContext context)
   {
     super.setup(context);
-    apexPythonEngine = initApexPythonEngineImpl();
+    apexPythonEngine = initApexPythonEngineImpl(context);
     try {
       apexPythonEngine.preInitInterpreter(getPreInitConfigurations());
       apexPythonEngine.startInterpreter();

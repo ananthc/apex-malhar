@@ -28,6 +28,6 @@ public class InterpreterThreadTest extends BaseJEPTest
         PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
     runCommandsRequest.getPythonInterpreterRequest().setGenericCommands(commands);
     pythonEngineThread.getRequestQueue().put(runCommandsRequest);
-    Thread.sleep(2225000);
+    Thread.sleep(3000);
   }
 }

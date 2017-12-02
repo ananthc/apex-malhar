@@ -30,7 +30,7 @@ public class InterpreterWrapper
 
   private int bufferCapacity = 16; // Represents the number of workers and response queue sizes
 
-  private int interpreterId;
+  private String interpreterId;
 
   private Future<?> handleToJepRunner;
 
@@ -45,11 +45,11 @@ public class InterpreterWrapper
   private transient BlockingQueue<PythonRequestResponse> delayedResponsesQueue;
 
 
-  public InterpreterWrapper(int interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef)
+  public InterpreterWrapper(String interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef)
   {
     delayedResponsesQueue = delayedResponsesQueueRef;
     this.interpreterId = interpreterId;
-    interpreterThread = new InterpreterThread(requestQueue,responseQueue);
+    interpreterThread = new InterpreterThread(requestQueue,responseQueue,interpreterId);
   }
 
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
@@ -244,12 +244,12 @@ public class InterpreterWrapper
     this.bufferCapacity = bufferCapacity;
   }
 
-  public int getInterpreterId()
+  public String getInterpreterId()
   {
     return interpreterId;
   }
 
-  public void setInterpreterId(int interpreterId)
+  public void setInterpreterId(String interpreterId)
   {
     this.interpreterId = interpreterId;
   }

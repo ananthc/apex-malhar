@@ -26,6 +26,8 @@ public class JepPythonEngine implements ApexPythonEngine
 
   private int numWorkerThreads = 3;
 
+  private String threadGroupName;
+
   private static final String JEP_LIBRARY_NAME = "jep";
 
   private transient List<PythonRequestResponse> commandHistory = new ArrayList<>();
@@ -39,21 +41,17 @@ public class JepPythonEngine implements ApexPythonEngine
 
   private List<InterpreterWrapper> workers = new ArrayList<>();
 
-  public JepPythonEngine(int numWorkerThreads)
+  public JepPythonEngine(String threadGroupName,int numWorkerThreads)
   {
     this.numWorkerThreads = numWorkerThreads;
-  }
-
-  public JepPythonEngine()
-  {
-
+    this.threadGroupName = threadGroupName;
   }
 
   private void initWorkers()
   {
     System.loadLibrary(JEP_LIBRARY_NAME);
     for ( int i = 0; i < numWorkerThreads; i++) {
-      InterpreterWrapper aWorker = new InterpreterWrapper(i,delayedResponseQueue);
+      InterpreterWrapper aWorker = new InterpreterWrapper(threadGroupName+i,delayedResponseQueue);
       workers.add(aWorker);
     }
   }
@@ -113,10 +111,10 @@ public class JepPythonEngine implements ApexPythonEngine
   }
 
   @Override
-  public Map<Integer,PythonRequestResponse>  runCommands(WorkerExecutionMode executionMode,long windowId,long requestId,
+  public Map<String,PythonRequestResponse>  runCommands(WorkerExecutionMode executionMode,long windowId,long requestId,
       List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
   {
-    Map<Integer,PythonRequestResponse> returnStatus = new HashMap<>();
+    Map<String,PythonRequestResponse> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (!executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
@@ -144,11 +142,11 @@ public class JepPythonEngine implements ApexPythonEngine
   }
 
   @Override
-  public <T> Map<Integer,PythonRequestResponse<T>> executeMethodCall(WorkerExecutionMode executionMode,long windowId,
+  public <T> Map<String,PythonRequestResponse<T>> executeMethodCall(WorkerExecutionMode executionMode,long windowId,
       long requestId, String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
       Class<T> expectedReturnType) throws ApexPythonInterpreterException, TimeoutException
   {
-    Map<Integer,PythonRequestResponse<T>> returnStatus = new HashMap<>();
+    Map<String,PythonRequestResponse<T>> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
       for ( InterpreterWrapper wrapper : workers) {
@@ -174,11 +172,11 @@ public class JepPythonEngine implements ApexPythonEngine
   }
 
   @Override
-  public Map<Integer,PythonRequestResponse>  executeScript(WorkerExecutionMode executionMode,long windowId,
+  public Map<String,PythonRequestResponse>  executeScript(WorkerExecutionMode executionMode,long windowId,
       long requestId, String scriptName, Map<String, Object> scriptParams, long timeout, TimeUnit timeUnit)
     throws ApexPythonInterpreterException,TimeoutException
   {
-    Map<Integer,PythonRequestResponse> returnStatus = new HashMap<>();
+    Map<String,PythonRequestResponse> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
       for ( InterpreterWrapper wrapper : workers) {
@@ -204,12 +202,12 @@ public class JepPythonEngine implements ApexPythonEngine
   }
 
   @Override
-  public <T> Map<Integer,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode,long windowId, long requestId,
+  public <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode,long windowId, long requestId,
       String command, String variableNameToFetch,Map<String, Object> globalMethodsParams,long timeout,TimeUnit timeUnit,
       boolean deleteExtractedVariable,Class<T> expectedReturnType)
     throws ApexPythonInterpreterException,TimeoutException
   {
-    Map<Integer,PythonRequestResponse<T>> statusOfEval = new HashMap<>();
+    Map<String,PythonRequestResponse<T>> statusOfEval = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (!executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
