@@ -51,7 +51,7 @@ public class JepPythonEngine implements ApexPythonEngine
   {
     System.loadLibrary(JEP_LIBRARY_NAME);
     for ( int i = 0; i < numWorkerThreads; i++) {
-      InterpreterWrapper aWorker = new InterpreterWrapper(threadGroupName+i,delayedResponseQueue);
+      InterpreterWrapper aWorker = new InterpreterWrapper(threadGroupName + i,delayedResponseQueue);
       workers.add(aWorker);
     }
   }

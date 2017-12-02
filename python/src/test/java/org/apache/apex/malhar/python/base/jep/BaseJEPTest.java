@@ -38,7 +38,7 @@ public class BaseJEPTest extends BasePythonTest
     if (!JEP_INITIALIZED) {
       synchronized (lockToInitializeJEP) {
         if (!JEP_INITIALIZED) {
-          pythonEngineThread = new InterpreterThread(requestQueue,responseQueue);
+          pythonEngineThread = new InterpreterThread(requestQueue,responseQueue,"unittests-1");
           pythonEngineThread.preInitInterpreter(new HashMap<String,Object>());
           executorService.submit(pythonEngineThread);
           JEP_INITIALIZED = true;

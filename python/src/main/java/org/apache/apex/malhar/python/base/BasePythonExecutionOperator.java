@@ -58,7 +58,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   protected ApexPythonEngine initApexPythonEngineImpl(Context.OperatorContext context)
   {
-    return new JepPythonEngine(""+context.getId(),workerThreadPoolSize);
+    return new JepPythonEngine("" + context.getId(),workerThreadPoolSize);
   }
 
   @Override
