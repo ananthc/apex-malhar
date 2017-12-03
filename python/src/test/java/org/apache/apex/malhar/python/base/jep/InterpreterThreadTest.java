@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
+import org.apache.commons.io.FileUtils;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -28,12 +29,14 @@ public class InterpreterThreadTest extends BaseJEPTest
   {
     long currentTime = System.currentTimeMillis();
     File tempFile = File.createTempFile("apexpythonunittestruncommands-", ".txt");
+    tempFile.deleteOnExit();
     String filePath = tempFile.getAbsolutePath();
     assertEquals(0L,tempFile.length());
 
     List<String> commands = new ArrayList();
     commands.add("fileHandle  = open('" + filePath + "', 'w')");
     commands.add("fileHandle.write('" + currentTime + "')");
+    commands.add("fileHandle.flush()");
     commands.add("fileHandle.close()");
     runCommands(commands);
     assertEquals(("" + currentTime).length(), tempFile.length());
@@ -45,7 +48,6 @@ public class InterpreterThreadTest extends BaseJEPTest
     Map<String,Boolean> responseStatus = response.getPythonInterpreterResponse().getCommandStatus();
     assertTrue(responseStatus.get(errorCommands.get(0)));
     assertFalse(responseStatus.get(errorCommands.get(1)));
-    tempFile.deleteOnExit();
   }
 
   @JepPythonTestContext(jepPythonBasedTest = true)
@@ -90,6 +92,17 @@ public class InterpreterThreadTest extends BaseJEPTest
     assertFalse(commandStatus.get(methodName));
   }
 
+  @JepPythonTestContext(jepPythonBasedTest = true)
+  @Test
+  public void testScriptCall() throws Exception
+  {
+    File tempFile = File.createTempFile("apexpythonunittestscript-", ".py");
+    tempFile.deleteOnExit();
+    String filePath = tempFile.getAbsolutePath();
+
+
+  }
+
 
   private PythonRequestResponse<Void> runCommands(List<String> commands) throws Exception
   {
@@ -99,5 +112,14 @@ public class InterpreterThreadTest extends BaseJEPTest
     pythonEngineThread.getRequestQueue().put(runCommandsRequest);
     Thread.sleep(1000); // wait for command to be processed
     return pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS);
+  }
+
+
+  private void migrateFileFromResourcesFolderToTemp(String resourceFileName,String targetFilePath) throws Exception
+  {
+
+    ClassLoader classLoader = getClass().getClassLoader();
+    File outFile = new File(targetFilePath);
+    FileUtils.copyInputStreamToFile(classLoader.getResourceAsStream(resourceFileName), outFile);
   }
 }
