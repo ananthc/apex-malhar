@@ -106,7 +106,8 @@ public class InterpreterThread implements Runnable
         resultsOfExecution.put(aCommand,JEP_INSTANCE.eval(aCommand));
       } catch (JepException e) {
         resultsOfExecution.put(aCommand,Boolean.FALSE);
-        throw new ApexPythonInterpreterException(e);
+        LOG.error("Error while running command " + aCommand, e);
+        return resultsOfExecution;
       }
     }
     return resultsOfExecution;
