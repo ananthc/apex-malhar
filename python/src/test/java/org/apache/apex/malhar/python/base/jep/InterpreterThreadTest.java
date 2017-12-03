@@ -27,32 +27,77 @@ public class InterpreterThreadTest extends BaseJEPTest
   public void testRunCommands() throws Exception
   {
     long currentTime = System.currentTimeMillis();
-    File tempFile = File.createTempFile("apexpythonunittestruncommands", "txt");
+    File tempFile = File.createTempFile("apexpythonunittestruncommands-", ".txt");
     String filePath = tempFile.getAbsolutePath();
     assertEquals(0L,tempFile.length());
+
     List<String> commands = new ArrayList();
     commands.add("fileHandle  = open('" + filePath + "', 'w')");
     commands.add("fileHandle.write('" + currentTime + "')");
     commands.add("fileHandle.close()");
+    runCommands(commands);
+    assertEquals(("" + currentTime).length(), tempFile.length());
+
+    List<String> errorCommands = new ArrayList();
+    errorCommands.add("1+2");
+    errorCommands.add("3+");
+    PythonRequestResponse<Void> response = runCommands(errorCommands);
+    Map<String,Boolean> responseStatus = response.getPythonInterpreterResponse().getCommandStatus();
+    assertTrue(responseStatus.get(errorCommands.get(0)));
+    assertFalse(responseStatus.get(errorCommands.get(1)));
+    tempFile.deleteOnExit();
+  }
+
+  @JepPythonTestContext(jepPythonBasedTest = true)
+  @Test
+  public void testMethodCall() throws Exception
+  {
+    String methodName = "jepMultiply";
+    List<String> commands = new ArrayList();
+    commands.add("def " + methodName + "(firstnum, secondnum):\n" +
+        "\treturn (firstnum * secondnum)\n");
+    runCommands(commands);
+
+    List<Long> params = new ArrayList<>();
+    params.add(5L);
+    params.add(25L);
+
+    PythonRequestResponse<Long> methodCallRequest = buildRequestResponseObjectForLongPayload(
+        PythonRequestResponse.PythonCommandType.METHOD_INVOCATION_COMMAND);
+    methodCallRequest.getPythonInterpreterRequest().setNameOfMethodForMethodCallInvocation(methodName);
+    methodCallRequest.getPythonInterpreterRequest().setArgsToMethodCallInvocation(params);
+    methodCallRequest.getPythonInterpreterRequest().setExpectedReturnType(Long.class);
+
+    pythonEngineThread.getRequestQueue().put(methodCallRequest);
+    Thread.sleep(1000); // wait for command to be processed
+    PythonRequestResponse<Long> methodCallResponse = pythonEngineThread.getResponseQueue().poll(1,
+        TimeUnit.SECONDS);
+    assertEquals(methodCallResponse.getPythonInterpreterResponse().getResponse(),125L);
+    Map<String,Boolean> commandStatus = methodCallResponse.getPythonInterpreterResponse().getCommandStatus();
+    assertTrue(commandStatus.get(methodName));
+
+    params.remove(1);
+    methodCallRequest = buildRequestResponseObjectForLongPayload(
+      PythonRequestResponse.PythonCommandType.METHOD_INVOCATION_COMMAND);
+    methodCallRequest.getPythonInterpreterRequest().setNameOfMethodForMethodCallInvocation(methodName);
+    methodCallRequest.getPythonInterpreterRequest().setArgsToMethodCallInvocation(params);
+    methodCallRequest.getPythonInterpreterRequest().setExpectedReturnType(Long.class);
+
+    pythonEngineThread.getRequestQueue().put(methodCallRequest);
+    Thread.sleep(1000); // wait for command to be processed
+    methodCallResponse = pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS);
+    commandStatus = methodCallResponse.getPythonInterpreterResponse().getCommandStatus();
+    assertFalse(commandStatus.get(methodName));
+  }
+
+
+  private PythonRequestResponse<Void> runCommands(List<String> commands) throws Exception
+  {
     PythonRequestResponse<Void> runCommandsRequest = buildRequestResponseObjectForVoidPayload(
         PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
     runCommandsRequest.getPythonInterpreterRequest().setGenericCommands(commands);
     pythonEngineThread.getRequestQueue().put(runCommandsRequest);
     Thread.sleep(1000); // wait for command to be processed
-    pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS); // drain response queue before next request
-    assertEquals(("" + currentTime).length(), tempFile.length());
-    List<String> errorCommands = new ArrayList();
-    errorCommands.add("1+2");
-    errorCommands.add("3+");
-    runCommandsRequest = buildRequestResponseObjectForVoidPayload(
-      PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
-    runCommandsRequest.getPythonInterpreterRequest().setGenericCommands(errorCommands);
-    pythonEngineThread.getRequestQueue().put(runCommandsRequest);
-    Thread.sleep(500); // wait for command to be processed
-    PythonRequestResponse<Void> response = pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS);
-    Map<String,Boolean> responseStatus = response.getPythonInterpreterResponse().getCommandStatus();
-    assertTrue(responseStatus.get(errorCommands.get(0)));
-    assertFalse(responseStatus.get(errorCommands.get(1)));
-    tempFile.deleteOnExit();
+    return pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS);
   }
 }

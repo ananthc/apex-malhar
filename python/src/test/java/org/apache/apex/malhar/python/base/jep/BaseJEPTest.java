@@ -63,4 +63,22 @@ public class BaseJEPTest extends BasePythonTest
     requestResponse.setWindowId(1L);
     return requestResponse;
   }
+
+  public PythonRequestResponse<Long> buildRequestResponseObjectForLongPayload(
+      PythonRequestResponse.PythonCommandType commandType) throws Exception
+  {
+    PythonRequestResponse<Long> requestResponse = new PythonRequestResponse();
+    PythonRequestResponse<Long>.PythonInterpreterRequest<Long> request =
+        requestResponse.new PythonInterpreterRequest<>();
+    PythonRequestResponse<Long>.PythonInterpreterResponse<Long> response =
+        requestResponse.new PythonInterpreterResponse<>(Long.class);
+    requestResponse.setPythonInterpreterRequest(request);
+    requestResponse.setPythonInterpreterResponse(response);
+    request.setCommandType(commandType);
+    requestResponse.setRequestStartTime(System.currentTimeMillis());
+    requestResponse.setRequestId(1L);
+    requestResponse.setWindowId(1L);
+    return requestResponse;
+  }
+
 }

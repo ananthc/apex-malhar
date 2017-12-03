@@ -119,8 +119,9 @@ public class InterpreterThread implements Runnable
     try {
       return (T)JEP_INSTANCE.invoke(nameOfGlobalMethod,argsToGlobalMethod.toArray());
     } catch (JepException e) {
-      throw new ApexPythonInterpreterException(e);
+      LOG.error("Error while executing method " + nameOfGlobalMethod, e);
     }
+    return null;
   }
 
   private void executeScript(String scriptName, Map<String, Object> globalParams)
@@ -196,7 +197,11 @@ public class InterpreterThread implements Runnable
         case METHOD_INVOCATION_COMMAND:
           response.setResponse(executeMethodCall(request.getNameOfMethodForMethodCallInvocation(),
               request.getArgsToMethodCallInvocation(), request.getExpectedReturnType()));
-          commandStatus.put(request.getNameOfMethodForMethodCallInvocation(),Boolean.TRUE);
+          if (response.getResponse() == null) {
+            commandStatus.put(request.getNameOfMethodForMethodCallInvocation(), Boolean.FALSE);
+          } else {
+            commandStatus.put(request.getNameOfMethodForMethodCallInvocation(), Boolean.TRUE);
+          }
           response.setCommandStatus(commandStatus);
           break;
         case GENERIC_COMMANDS:
