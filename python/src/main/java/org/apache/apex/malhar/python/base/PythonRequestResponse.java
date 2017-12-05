@@ -96,8 +96,6 @@ public class PythonRequestResponse<T>
 
     String scriptName;
 
-    Map<String, Object> methodParamsForScript;
-
     boolean deleteVariableAfterEvalCall;
 
     String variableNameToExtractInEvalCall;
@@ -166,16 +164,6 @@ public class PythonRequestResponse<T>
     public void setScriptName(String scriptName)
     {
       this.scriptName = scriptName;
-    }
-
-    public Map<String, Object> getMethodParamsForScript()
-    {
-      return methodParamsForScript;
-    }
-
-    public void setMethodParamsForScript(Map<String, Object> methodParamsForScript)
-    {
-      this.methodParamsForScript = methodParamsForScript;
     }
 
     public boolean isDeleteVariableAfterEvalCall()

@@ -25,7 +25,7 @@ public interface ApexPythonEngine
       Class<T> expectedReturnType) throws ApexPythonInterpreterException, TimeoutException;
 
   Map<String,PythonRequestResponse>  executeScript(WorkerExecutionMode executionMode,long windowId, long requestId,
-      String scriptName, Map<String,Object> methodParams, long timeout, TimeUnit timeUnit)
+      String scriptName, long timeout, TimeUnit timeUnit)
     throws ApexPythonInterpreterException, TimeoutException;
 
   <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode, long windowId, long requestId,

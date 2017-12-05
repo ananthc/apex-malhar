@@ -180,14 +180,13 @@ public class InterpreterWrapper
   }
 
   public PythonRequestResponse executeScript(long windowId, long requestId, String scriptName,
-      Map<String, Object> methodParams, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException,
+      long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException,
     TimeoutException
   {
     PythonRequestResponse<Void> requestResponse = buildRequestObject(
         PythonRequestResponse.PythonCommandType.SCRIPT_COMMAND, windowId,requestId,Void.class);
     PythonRequestResponse<Void>.PythonInterpreterRequest<Void> request = requestResponse.getPythonInterpreterRequest();
     request.setScriptName(scriptName);
-    request.setMethodParamsForScript(methodParams);
     processRequest(requestResponse,calculateTimeOutInNanos(timeout,timeUnit),Void.class);
     return requestResponse;
   }

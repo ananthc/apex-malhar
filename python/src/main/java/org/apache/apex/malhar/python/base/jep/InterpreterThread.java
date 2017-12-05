@@ -124,20 +124,16 @@ public class InterpreterThread implements Runnable
     return null;
   }
 
-  private void executeScript(String scriptName, Map<String, Object> globalParams)
+  private boolean executeScript(String scriptName)
     throws ApexPythonInterpreterException
   {
     try {
-      for (String aKey: globalParams.keySet()) {
-        JEP_INSTANCE.set(aKey, globalParams.get(aKey));
-      }
       JEP_INSTANCE.runScript(scriptName);
-      for (String aKey: globalParams.keySet()) {
-        JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + aKey);
-      }
+      return true;
     } catch (JepException e) {
-      throw new ApexPythonInterpreterException(e);
+      LOG.error(" Error while executing script " + scriptName, e);
     }
+    return false;
   }
 
   private <T> T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams,
@@ -191,8 +187,12 @@ public class InterpreterThread implements Runnable
           response.setCommandStatus(commandStatus);
           break;
         case SCRIPT_COMMAND:
-          executeScript(request.getScriptName(), request.getMethodParamsForScript());
-          commandStatus.put(request.getScriptName(),Boolean.TRUE);
+          if (executeScript(request.getScriptName())) {
+            commandStatus.put(request.getScriptName(),Boolean.TRUE);
+          } else {
+            commandStatus.put(request.getScriptName(),Boolean.FALSE);
+          }
+          response.setCommandStatus(commandStatus);
           break;
         case METHOD_INVOCATION_COMMAND:
           response.setResponse(executeMethodCall(request.getNameOfMethodForMethodCallInvocation(),

@@ -173,21 +173,21 @@ public class JepPythonEngine implements ApexPythonEngine
 
   @Override
   public Map<String,PythonRequestResponse>  executeScript(WorkerExecutionMode executionMode,long windowId,
-      long requestId, String scriptName, Map<String, Object> scriptParams, long timeout, TimeUnit timeUnit)
+      long requestId, String scriptName,long timeout, TimeUnit timeUnit)
     throws ApexPythonInterpreterException,TimeoutException
   {
     Map<String,PythonRequestResponse> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
       for ( InterpreterWrapper wrapper : workers) {
-        lastSuccessfullySubmittedRequest = wrapper.executeScript(windowId,requestId,scriptName,scriptParams,
+        lastSuccessfullySubmittedRequest = wrapper.executeScript(windowId,requestId,scriptName,
           timeout,timeUnit);
         returnStatus.put(wrapper.getInterpreterId(),lastSuccessfullySubmittedRequest);
       }
     } else {
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
       if (currentThread != null) {
-        lastSuccessfullySubmittedRequest = currentThread.executeScript(windowId, requestId, scriptName, scriptParams,
+        lastSuccessfullySubmittedRequest = currentThread.executeScript(windowId, requestId, scriptName,
           timeout, timeUnit);
         returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
       } else {

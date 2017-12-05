@@ -1,6 +1,8 @@
 package org.apache.apex.malhar.python.base.jep;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -12,7 +14,6 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
-import org.apache.commons.io.FileUtils;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -96,11 +97,26 @@ public class InterpreterThreadTest extends BaseJEPTest
   @Test
   public void testScriptCall() throws Exception
   {
-    File tempFile = File.createTempFile("apexpythonunittestscript-", ".py");
-    tempFile.deleteOnExit();
-    String filePath = tempFile.getAbsolutePath();
-
-
+    File tempFileForScript = File.createTempFile("apexpythonunittestscript-", ".py");
+    tempFileForScript.deleteOnExit();
+    String filePathForFactorialScript = tempFileForScript.getAbsolutePath();
+    migrateFileFromResourcesFolderToTemp("factorial.py",filePathForFactorialScript);
+    PythonRequestResponse<Void> methodCallRequest = buildRequestResponseObjectForVoidPayload(
+        PythonRequestResponse.PythonCommandType.SCRIPT_COMMAND);
+    methodCallRequest.getPythonInterpreterRequest().setScriptName(filePathForFactorialScript);
+    pythonEngineThread.getRequestQueue().put(methodCallRequest);
+    Thread.sleep(1000); // wait for command to be processed
+    PythonRequestResponse<Void> methodCallResponse = pythonEngineThread.getResponseQueue().poll(1,
+        TimeUnit.SECONDS);
+    Map<String,Boolean> commandStatus = methodCallResponse.getPythonInterpreterResponse().getCommandStatus();
+    assertTrue(commandStatus.get(filePathForFactorialScript));
+    try (BufferedReader br = new BufferedReader(new FileReader("target/factorial-result.txt"))) {
+      String line;
+      while ((line = br.readLine()) != null) {
+        assertEquals(120,Integer.parseInt(line)); // asset factorial is calculated as written in script in resources
+        break;
+      }
+    }
   }
 
 
@@ -114,12 +130,4 @@ public class InterpreterThreadTest extends BaseJEPTest
     return pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS);
   }
 
-
-  private void migrateFileFromResourcesFolderToTemp(String resourceFileName,String targetFilePath) throws Exception
-  {
-
-    ClassLoader classLoader = getClass().getClassLoader();
-    File outFile = new File(targetFilePath);
-    FileUtils.copyInputStreamToFile(classLoader.getResourceAsStream(resourceFileName), outFile);
-  }
 }
