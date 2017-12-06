@@ -4,8 +4,10 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
 import org.junit.Test;
@@ -58,7 +60,7 @@ public class InterpreterThreadTest extends BaseJEPTest
     String methodName = "jepMultiply";
     List<String> commands = new ArrayList();
     commands.add("def " + methodName + "(firstnum, secondnum):\n" +
-        "\treturn (firstnum * secondnum)\n");
+        "\treturn (firstnum * secondnum)\n"); // Note that this cannot be split as multiple commands
     runCommands(commands);
 
     List<Long> params = new ArrayList<>();
@@ -114,11 +116,40 @@ public class InterpreterThreadTest extends BaseJEPTest
       String line;
       while ((line = br.readLine()) != null) {
         assertEquals(120,Integer.parseInt(line)); // asset factorial is calculated as written in script in resources
-        break;
+        break; // There is only one line in the file per the python script
       }
     }
   }
 
+  @JepPythonTestContext(jepPythonBasedTest = true)
+  @Test
+  public void testEvalCall() throws Exception
+  {
+    String expression = new String("x = a + b");
+    Random random = new Random();
+    int a = random.nextInt(100);
+    int b = random.nextInt(100);
+    Map<String,Object> argsForEval = new HashMap<>();
+    argsForEval.put("a",a);
+    argsForEval.put("b",b);
+    PythonRequestResponse<Long> methodCallRequest = buildRequestResponseObjectForLongPayload(
+        PythonRequestResponse.PythonCommandType.EVAL_COMMAND);
+    methodCallRequest.getPythonInterpreterRequest().setEvalCommand(expression);
+    methodCallRequest.getPythonInterpreterRequest().setParamsForEvalCommand(argsForEval);
+    methodCallRequest.getPythonInterpreterRequest().setDeleteVariableAfterEvalCall(true);
+    methodCallRequest.getPythonInterpreterRequest().setVariableNameToExtractInEvalCall("x");
+    methodCallRequest.getPythonInterpreterRequest().setExpectedReturnType(Long.class);
+    pythonEngineThread.getRequestQueue().put(methodCallRequest);
+    Thread.sleep(1000); // wait for command to be processed
+    PythonRequestResponse<Integer> methodCallResponse = pythonEngineThread.getResponseQueue().poll(1,
+        TimeUnit.SECONDS);
+    Map<String,Boolean> commandStatus = methodCallResponse.getPythonInterpreterResponse().getCommandStatus();
+    assertTrue(commandStatus.get(expression));
+    assertEquals(methodCallResponse.getPythonInterpreterResponse().getResponse(),(long)(a + b));
+
+
+
+  }
 
   private PythonRequestResponse<Void> runCommands(List<String> commands) throws Exception
   {

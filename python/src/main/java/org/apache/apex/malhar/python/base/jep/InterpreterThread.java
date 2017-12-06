@@ -117,7 +117,7 @@ public class InterpreterThread implements Runnable
       Class<T> type) throws ApexPythonInterpreterException
   {
     try {
-      return (T)JEP_INSTANCE.invoke(nameOfGlobalMethod,argsToGlobalMethod.toArray());
+      return type.cast(JEP_INSTANCE.invoke(nameOfGlobalMethod,argsToGlobalMethod.toArray()));
     } catch (JepException e) {
       LOG.error("Error while executing method " + nameOfGlobalMethod, e);
     }
@@ -140,24 +140,42 @@ public class InterpreterThread implements Runnable
       boolean deleteExtractedVariable,Class<T> expectedReturnType) throws ApexPythonInterpreterException
   {
     T variableToReturn = null;
+    LOG.debug(" params for eval passed in are " + command + " " + expectedReturnType);
     try {
-      for (String aKey: globalMethodsParams.keySet()) {
-        JEP_INSTANCE.set(aKey, globalMethodsParams.get(aKey));
+      for (String aKey : globalMethodsParams.keySet()) {
+        if (globalMethodsParams.get(aKey) instanceof Integer) {
+          JEP_INSTANCE.set(aKey, (int)globalMethodsParams.get(aKey));
+        }
+        if (globalMethodsParams.get(aKey) instanceof Long) {
+          JEP_INSTANCE.set(aKey, (long)globalMethodsParams.get(aKey));
+        }
       }
+    } catch (JepException e) {
+      LOG.debug("Error while setting the params for eval expression " + command, e);
+      return null;
+    }
+    try {
       JEP_INSTANCE.eval(command);
-      for (String aKey: globalMethodsParams.keySet()) {
-        JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + aKey);
-      }
+    } catch (JepException e) {
+      LOG.debug("Error while evaluating the expresions " + command, e);
+      return null;
+    }
+    try {
       if (variableToExtract != null) {
-        variableToReturn =  (T)JEP_INSTANCE.getValue(variableToExtract);
+        variableToReturn =  expectedReturnType.cast(JEP_INSTANCE.getValue(variableToExtract));
         if (deleteExtractedVariable) {
           JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + variableToExtract);
         }
       }
-      return variableToReturn;
+      for (String aKey: globalMethodsParams.keySet()) {
+        LOG.debug("deleting " + aKey);
+        JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + aKey);
+      }
     } catch (JepException e) {
-      throw new ApexPythonInterpreterException(e);
+      LOG.error("Error while evaluating expression " + command, e);
+      return null;
     }
+    return variableToReturn;
   }
 
   public void stopInterpreter() throws ApexPythonInterpreterException
@@ -180,10 +198,15 @@ public class InterpreterThread implements Runnable
       Map<String,Boolean> commandStatus = new HashMap<>(1);
       switch (request.getCommandType()) {
         case EVAL_COMMAND:
-          response.setResponse(eval(request.getEvalCommand(), request.getVariableNameToExtractInEvalCall(),
+          T responseVal = eval(request.getEvalCommand(), request.getVariableNameToExtractInEvalCall(),
               request.getParamsForEvalCommand(), request.isDeleteVariableAfterEvalCall(),
-              request.getExpectedReturnType()));
-          commandStatus.put(request.getEvalCommand(),Boolean.TRUE);
+              request.getExpectedReturnType());
+          response.setResponse(responseVal);
+          if (responseVal != null) {
+            commandStatus.put(request.getEvalCommand(),Boolean.TRUE);
+          } else {
+            commandStatus.put(request.getEvalCommand(),Boolean.FALSE);
+          }
           response.setCommandStatus(commandStatus);
           break;
         case SCRIPT_COMMAND:

@@ -81,4 +81,23 @@ public class BaseJEPTest extends BasePythonTest
     return requestResponse;
   }
 
+
+
+  public PythonRequestResponse<Integer> buildRequestResponseObjectForIntPayload(
+      PythonRequestResponse.PythonCommandType commandType) throws Exception
+  {
+    PythonRequestResponse<Integer> requestResponse = new PythonRequestResponse();
+    PythonRequestResponse<Integer>.PythonInterpreterRequest<Integer> request =
+        requestResponse.new PythonInterpreterRequest<>();
+    PythonRequestResponse<Integer>.PythonInterpreterResponse<Integer> response =
+        requestResponse.new PythonInterpreterResponse<>(Integer.class);
+    requestResponse.setPythonInterpreterRequest(request);
+    requestResponse.setPythonInterpreterResponse(response);
+    request.setCommandType(commandType);
+    requestResponse.setRequestStartTime(System.currentTimeMillis());
+    requestResponse.setRequestId(1L);
+    requestResponse.setWindowId(1L);
+    return requestResponse;
+  }
+
 }
