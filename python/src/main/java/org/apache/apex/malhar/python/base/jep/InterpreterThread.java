@@ -3,6 +3,7 @@ package org.apache.apex.malhar.python.base.jep;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -28,6 +29,8 @@ public class InterpreterThread implements Runnable
   public static final String PYTHON_DEL_COMMAND = "del ";
 
   public static final String PYTHON_INCLUDE_PATHS = "PYTHON_INCLUDE_PATHS";
+
+  public static final String PYTHON_SHARED_LIBS = "PYTHON_SHARED_LIBS";
 
   public transient Jep JEP_INSTANCE;
 
@@ -90,6 +93,12 @@ public class InterpreterThread implements Runnable
         }
       }
     }
+    if (initConfigs.containsKey(PYTHON_SHARED_LIBS)) {
+      Set<String> sharedLibs = (Set<String>)initConfigs.get(PYTHON_SHARED_LIBS);
+      if ( sharedLibs != null) {
+        config.setSharedModules(sharedLibs);
+      }
+    }
     try {
       JEP_INSTANCE = new Jep(config);
     } catch (JepException e) {
@@ -143,12 +152,7 @@ public class InterpreterThread implements Runnable
     LOG.debug(" params for eval passed in are " + command + " " + expectedReturnType);
     try {
       for (String aKey : globalMethodsParams.keySet()) {
-        if (globalMethodsParams.get(aKey) instanceof Integer) {
-          JEP_INSTANCE.set(aKey, (int)globalMethodsParams.get(aKey));
-        }
-        if (globalMethodsParams.get(aKey) instanceof Long) {
-          JEP_INSTANCE.set(aKey, (long)globalMethodsParams.get(aKey));
-        }
+        JEP_INSTANCE.set(aKey, globalMethodsParams.get(aKey));
       }
     } catch (JepException e) {
       LOG.debug("Error while setting the params for eval expression " + command, e);
@@ -157,7 +161,7 @@ public class InterpreterThread implements Runnable
     try {
       JEP_INSTANCE.eval(command);
     } catch (JepException e) {
-      LOG.debug("Error while evaluating the expresions " + command, e);
+      LOG.debug("Error while evaluating the expression " + command, e);
       return null;
     }
     try {
