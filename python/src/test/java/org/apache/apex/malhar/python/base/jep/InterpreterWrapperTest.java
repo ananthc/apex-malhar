@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertNotNull;
 
 public class InterpreterWrapperTest extends BaseJEPTest
 {
@@ -27,16 +27,11 @@ public class InterpreterWrapperTest extends BaseJEPTest
     String filePath = tempFile.getAbsolutePath();
 
     List<String> sequenceOfCommands = new ArrayList();
-    sequenceOfCommands.add("x=100");
-    sequenceOfCommands.add("y=10");
-    sequenceOfCommands.add("a = x + y");
-    sequenceOfCommands.add("fileHandle  = open('" + filePath + "', 'w')");
-    sequenceOfCommands.add("fileHandle.write(str(a))");
-    sequenceOfCommands.add("fileHandle.flush()");
-    sequenceOfCommands.add("fileHandle.close()");
-    PythonRequestResponse<Void> result = interpreterWrapper.runCommands(1L,1L,
-        sequenceOfCommands,10, TimeUnit.SECONDS);
-     assertNotNull(result);
+    sequenceOfCommands.add("import time");
+    sequenceOfCommands.add("time.sleep(1)");
+    PythonRequestResponse<Void> resultOne = interpreterWrapper.runCommands(1L,1L,
+        sequenceOfCommands,3, TimeUnit.SECONDS);
+    assertNotNull(resultOne);
 
 
   }

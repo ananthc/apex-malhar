@@ -42,9 +42,9 @@ public class InterpreterThread implements Runnable
 
   private TimeUnit timeUnitsToPollFromRequestQueue = TimeUnit.MILLISECONDS;
 
-  private volatile transient BlockingQueue<PythonRequestResponse> requestQueue;
+  private transient volatile BlockingQueue<PythonRequestResponse> requestQueue;
 
-  private volatile transient BlockingQueue<PythonRequestResponse> responseQueue;
+  private transient volatile BlockingQueue<PythonRequestResponse> responseQueue;
 
   private String threadID;
 
@@ -194,8 +194,7 @@ public class InterpreterThread implements Runnable
     PythonRequestResponse requestResponseHandle = requestQueue.poll(timeOutToPollFromRequestQueue,
         timeUnitsToPollFromRequestQueue);
     if (requestResponseHandle != null) {
-      LOG.debug("Processing command " + requestResponseHandle.getPythonInterpreterRequest().getCommandType() +
-        " submitted at " + requestResponseHandle.getRequestStartTime());
+      LOG.debug("Processing command " + requestResponseHandle.getPythonInterpreterRequest().getCommandType());
       isBusy = true;
       PythonRequestResponse<T>.PythonInterpreterRequest<T> request =
           requestResponseHandle.getPythonInterpreterRequest();
@@ -241,8 +240,7 @@ public class InterpreterThread implements Runnable
       }
       requestResponseHandle.setRequestCompletionTime(System.currentTimeMillis());
       responseQueue.put(requestResponseHandle);
-      LOG.debug("Submitted the response " + response.getCommandStatus().size() + " response time as " +
-        requestResponseHandle.getRequestCompletionTime());
+      LOG.debug("Submitted the response " + response.getCommandStatus().size());
     }
     isBusy = false;
   }

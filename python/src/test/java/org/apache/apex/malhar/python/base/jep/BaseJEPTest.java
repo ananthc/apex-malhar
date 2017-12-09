@@ -37,7 +37,7 @@ public class BaseJEPTest extends BasePythonTest
       new DisruptorBlockingQueue<PythonRequestResponse>(8,SpinPolicy.WAITING);
 
   static BlockingQueue<PythonRequestResponse> delayedResponseQueueForWrapper =
-    new DisruptorBlockingQueue<PythonRequestResponse>(8, SpinPolicy.WAITING);
+      new DisruptorBlockingQueue<PythonRequestResponse>(8, SpinPolicy.WAITING);
 
 
   public static void initJEPThread() throws Exception
@@ -116,7 +116,7 @@ public class BaseJEPTest extends BasePythonTest
   protected PythonRequestResponse<Void> runCommands(List<String> commands) throws Exception
   {
     PythonRequestResponse<Void> runCommandsRequest = buildRequestResponseObjectForVoidPayload(
-      PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
+        PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
     runCommandsRequest.getPythonInterpreterRequest().setGenericCommands(commands);
     pythonEngineThread.getRequestQueue().put(runCommandsRequest);
     Thread.sleep(1000); // wait for command to be processed
