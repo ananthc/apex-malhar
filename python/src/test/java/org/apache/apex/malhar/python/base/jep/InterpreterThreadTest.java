@@ -146,19 +146,6 @@ public class InterpreterThreadTest extends BaseJEPTest
     Map<String,Boolean> commandStatus = methodCallResponse.getPythonInterpreterResponse().getCommandStatus();
     assertTrue(commandStatus.get(expression));
     assertEquals(methodCallResponse.getPythonInterpreterResponse().getResponse(),(long)(a + b));
-
-
-
-  }
-
-  private PythonRequestResponse<Void> runCommands(List<String> commands) throws Exception
-  {
-    PythonRequestResponse<Void> runCommandsRequest = buildRequestResponseObjectForVoidPayload(
-        PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
-    runCommandsRequest.getPythonInterpreterRequest().setGenericCommands(commands);
-    pythonEngineThread.getRequestQueue().put(runCommandsRequest);
-    Thread.sleep(1000); // wait for command to be processed
-    return pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS);
   }
 
 }

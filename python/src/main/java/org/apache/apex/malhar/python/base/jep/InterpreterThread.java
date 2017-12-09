@@ -42,9 +42,9 @@ public class InterpreterThread implements Runnable
 
   private TimeUnit timeUnitsToPollFromRequestQueue = TimeUnit.MILLISECONDS;
 
-  private transient BlockingQueue<PythonRequestResponse> requestQueue;
+  private volatile transient BlockingQueue<PythonRequestResponse> requestQueue;
 
-  private transient BlockingQueue<PythonRequestResponse> responseQueue;
+  private volatile transient BlockingQueue<PythonRequestResponse> responseQueue;
 
   private String threadID;
 
@@ -190,10 +190,12 @@ public class InterpreterThread implements Runnable
 
   private <T> void processCommand() throws ApexPythonInterpreterException, InterruptedException
   {
-    LOG.debug("Processing command ");
+
     PythonRequestResponse requestResponseHandle = requestQueue.poll(timeOutToPollFromRequestQueue,
         timeUnitsToPollFromRequestQueue);
     if (requestResponseHandle != null) {
+      LOG.debug("Processing command " + requestResponseHandle.getPythonInterpreterRequest().getCommandType() +
+        " submitted at " + requestResponseHandle.getRequestStartTime());
       isBusy = true;
       PythonRequestResponse<T>.PythonInterpreterRequest<T> request =
           requestResponseHandle.getPythonInterpreterRequest();
@@ -239,6 +241,8 @@ public class InterpreterThread implements Runnable
       }
       requestResponseHandle.setRequestCompletionTime(System.currentTimeMillis());
       responseQueue.put(requestResponseHandle);
+      LOG.debug("Submitted the response " + response.getCommandStatus().size() + " response time as " +
+        requestResponseHandle.getRequestCompletionTime());
     }
     isBusy = false;
   }
@@ -255,6 +259,14 @@ public class InterpreterThread implements Runnable
       }
     }
     while (!isStopped) {
+      if (requestQueue.isEmpty()) {
+        try {
+          Thread.sleep(1L);
+          continue;
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+      }
       try {
         processCommand();
       } catch (InterruptedException | ApexPythonInterpreterException e) {

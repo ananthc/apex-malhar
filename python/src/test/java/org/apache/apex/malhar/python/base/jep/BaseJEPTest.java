@@ -1,9 +1,11 @@
 package org.apache.apex.malhar.python.base.jep;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +26,8 @@ public class BaseJEPTest extends BasePythonTest
 
   static InterpreterThread pythonEngineThread;
 
+  static InterpreterWrapper interpreterWrapper;
+
   static ExecutorService executorService = Executors.newSingleThreadExecutor();
 
   static BlockingQueue<PythonRequestResponse> requestQueue =
@@ -32,15 +36,23 @@ public class BaseJEPTest extends BasePythonTest
   static BlockingQueue<PythonRequestResponse> responseQueue =
       new DisruptorBlockingQueue<PythonRequestResponse>(8,SpinPolicy.WAITING);
 
+  static BlockingQueue<PythonRequestResponse> delayedResponseQueueForWrapper =
+    new DisruptorBlockingQueue<PythonRequestResponse>(8, SpinPolicy.WAITING);
+
 
   public static void initJEPThread() throws Exception
   {
     if (!JEP_INITIALIZED) {
       synchronized (lockToInitializeJEP) {
         if (!JEP_INITIALIZED) {
+          // Interpreter for thread based tests
           pythonEngineThread = new InterpreterThread(requestQueue,responseQueue,"unittests-1");
           pythonEngineThread.preInitInterpreter(new HashMap<String,Object>());
           executorService.submit(pythonEngineThread);
+
+          // interpreter for wrapper based tests
+          interpreterWrapper = new InterpreterWrapper("unit-test-wrapper",delayedResponseQueueForWrapper);
+
           JEP_INITIALIZED = true;
         }
       }
@@ -98,6 +110,17 @@ public class BaseJEPTest extends BasePythonTest
     requestResponse.setRequestId(1L);
     requestResponse.setWindowId(1L);
     return requestResponse;
+  }
+
+
+  protected PythonRequestResponse<Void> runCommands(List<String> commands) throws Exception
+  {
+    PythonRequestResponse<Void> runCommandsRequest = buildRequestResponseObjectForVoidPayload(
+      PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
+    runCommandsRequest.getPythonInterpreterRequest().setGenericCommands(commands);
+    pythonEngineThread.getRequestQueue().put(runCommandsRequest);
+    Thread.sleep(1000); // wait for command to be processed
+    return pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS);
   }
 
 }

@@ -104,7 +104,7 @@ public class JepPythonEngine implements ApexPythonEngine
     for ( InterpreterWrapper wrapper : workers) {
       for (PythonRequestResponse requestResponse : commandHistory) {
         PythonRequestResponse.PythonInterpreterRequest requestPayload = requestResponse.getPythonInterpreterRequest();
-        wrapper.processRequest(requestResponse,requestPayload.getTimeOutInNanos(),
+        wrapper.processRequest(requestResponse,requestPayload.getTimeOutInNanos(), TimeUnit.NANOSECONDS,
             requestPayload.getExpectedReturnType());
       }
     }
