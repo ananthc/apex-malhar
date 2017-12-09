@@ -13,6 +13,7 @@ import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 
 public class InterpreterWrapperTest extends BaseJEPTest
 {
@@ -33,6 +34,9 @@ public class InterpreterWrapperTest extends BaseJEPTest
         sequenceOfCommands,3, TimeUnit.SECONDS);
     assertNotNull(resultOne);
 
+    PythonRequestResponse<Void> resultTWo = interpreterWrapper.runCommands(1L,1L,
+        sequenceOfCommands,5, TimeUnit.MILLISECONDS);
+    assertNull(resultTWo);
 
   }
 
