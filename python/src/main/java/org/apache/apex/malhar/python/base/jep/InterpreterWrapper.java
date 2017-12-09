@@ -49,7 +49,6 @@ public class InterpreterWrapper
     requestQueue = new DisruptorBlockingQueue<>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
     responseQueue =  new DisruptorBlockingQueue<>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
     interpreterThread = new InterpreterThread(requestQueue,responseQueue,interpreterId);
-    executorService.submit(interpreterThread);
   }
 
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException

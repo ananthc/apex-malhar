@@ -28,6 +28,8 @@ public class BaseJEPTest extends BasePythonTest
 
   static InterpreterWrapper interpreterWrapper;
 
+  static JepPythonEngine jepPythonEngine;
+
   static ExecutorService executorService = Executors.newSingleThreadExecutor();
 
   static BlockingQueue<PythonRequestResponse> requestQueue =
@@ -50,9 +52,14 @@ public class BaseJEPTest extends BasePythonTest
           pythonEngineThread.preInitInterpreter(new HashMap<String,Object>());
           executorService.submit(pythonEngineThread);
 
-          // interpreter for wrapper based tests
+          // interpreter wrapper for wrapper based tests
           interpreterWrapper = new InterpreterWrapper("unit-test-wrapper",delayedResponseQueueForWrapper);
+          interpreterWrapper.startInterpreter();
 
+          // JEP python engine tests
+          jepPythonEngine = new JepPythonEngine("unit-tests-jeppythonengine",5);
+          jepPythonEngine.preInitInterpreter(new HashMap<String,Object>());
+          jepPythonEngine.startInterpreter();
           JEP_INITIALIZED = true;
         }
       }

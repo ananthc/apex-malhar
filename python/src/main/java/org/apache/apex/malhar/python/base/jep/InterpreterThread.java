@@ -36,7 +36,7 @@ public class InterpreterThread implements Runnable
 
   private transient volatile boolean isStopped = false;
 
-  private transient boolean isBusy = false;
+  private transient volatile boolean busyFlag = false;
 
   private long timeOutToPollFromRequestQueue = 5;
 
@@ -60,7 +60,8 @@ public class InterpreterThread implements Runnable
 
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
   {
-    LOG.info("Java library path being used is: " + System.getProperty("java.library.path"));
+    LOG.info("Java library path being used for Interpreted ID " +  threadID + " " +
+        System.getProperty("java.library.path"));
     System.loadLibrary(JEP_LIBRARY_NAME);
   }
 
@@ -195,7 +196,7 @@ public class InterpreterThread implements Runnable
         timeUnitsToPollFromRequestQueue);
     if (requestResponseHandle != null) {
       LOG.debug("Processing command " + requestResponseHandle.getPythonInterpreterRequest().getCommandType());
-      isBusy = true;
+      busyFlag = true;
       PythonRequestResponse<T>.PythonInterpreterRequest<T> request =
           requestResponseHandle.getPythonInterpreterRequest();
       PythonRequestResponse<T>.PythonInterpreterResponse<T> response =
@@ -242,13 +243,13 @@ public class InterpreterThread implements Runnable
       responseQueue.put(requestResponseHandle);
       LOG.debug("Submitted the response " + response.getCommandStatus().size());
     }
-    isBusy = false;
+    busyFlag = false;
   }
 
   @Override
   public void run()
   {
-    LOG.info("Starting the execution of processing " );
+    LOG.info("Starting the execution of Interpreter thread " + threadID );
     if (JEP_INSTANCE == null) {
       try {
         startInterpreter();
@@ -350,11 +351,17 @@ public class InterpreterThread implements Runnable
 
   public boolean isBusy()
   {
-    return isBusy;
+    boolean busyState = busyFlag;
+    if (!requestQueue.isEmpty()) { // This is required because interpreter thread goes to a 1 ms sleep to allow other
+      //  threads work when checking the queue for request availability. Hence busy state flag need not necessarily
+      // be updated in this sleep window even though if there is a pending request
+      busyState = true;
+    }
+    return busyState;
   }
 
   public void setBusy(boolean busy)
   {
-    isBusy = busy;
+    busyFlag = busy;
   }
 }

@@ -47,16 +47,17 @@ public class JepPythonEngine implements ApexPythonEngine
     this.threadGroupName = threadGroupName;
   }
 
-  private void initWorkers()
+  private void initWorkers() throws ApexPythonInterpreterException
   {
     System.loadLibrary(JEP_LIBRARY_NAME);
     for ( int i = 0; i < numWorkerThreads; i++) {
-      InterpreterWrapper aWorker = new InterpreterWrapper(threadGroupName + i,delayedResponseQueue);
+      InterpreterWrapper aWorker = new InterpreterWrapper(threadGroupName + "-" + i,delayedResponseQueue);
+      aWorker.startInterpreter();
       workers.add(aWorker);
     }
   }
 
-  private InterpreterWrapper selectWorkerForCurrentCall(long requestId)
+  protected InterpreterWrapper selectWorkerForCurrentCall(long requestId)
   {
     int slotToLookFor = Ints.saturatedCast(requestId) % numWorkerThreads;
     boolean isWorkerFound = false;
@@ -67,6 +68,7 @@ public class JepPythonEngine implements ApexPythonEngine
       numWorkersScannedForAvailability  = numWorkersScannedForAvailability + 1;
       if (!aWorker.isCurrentlyBusy()) {
         isWorkerFound = true;
+        break;
       } else {
         slotToLookFor = slotToLookFor + 1;
         if ( slotToLookFor == numWorkerThreads) {
@@ -93,9 +95,6 @@ public class JepPythonEngine implements ApexPythonEngine
   public void startInterpreter() throws ApexPythonInterpreterException
   {
     initWorkers();
-    for ( InterpreterWrapper wrapper : workers) {
-      wrapper.startInterpreter();
-    }
   }
 
   @Override
