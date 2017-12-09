@@ -1,7 +1,7 @@
 package org.apache.apex.malhar.python.base.jep;
 
-import java.io.File;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
@@ -21,12 +22,8 @@ public class InterpreterWrapperTest extends BaseJEPTest
 
   @JepPythonTestContext(jepPythonBasedTest = true)
   @Test
-  public void runCommandsAsWrapper() throws Exception
+  public void testTimeOuts() throws Exception
   {
-    File tempFile = File.createTempFile("apexpythonwrappertest-", ".txt");
-    tempFile.deleteOnExit();
-    String filePath = tempFile.getAbsolutePath();
-
     List<String> sequenceOfCommands = new ArrayList();
     sequenceOfCommands.add("import time");
     sequenceOfCommands.add("time.sleep(1)");
@@ -40,23 +37,27 @@ public class InterpreterWrapperTest extends BaseJEPTest
 
   }
 
+  @JepPythonTestContext(jepPythonBasedTest = true)
   @Test
-  public void executeMethodCallAsWrapper() throws Exception
+  public void testDelayedResponseQueue() throws Exception
   {
-  }
-
-  @Test
-  public void executeScriptAsWrapper() throws Exception
-  {
-  }
-
-  @Test
-  public void evalAsWrapper() throws Exception
-  {
-  }
-
-  private void runCommandsForCreatingFile() throws Exception
-  {
+    List<String> sequenceOfCommands = new ArrayList();
+    sequenceOfCommands.add("import time");
+    sequenceOfCommands.add("x=4;time.sleep(1)");
+    PythonRequestResponse<Void> resultOne = interpreterWrapper.runCommands(1L,1L,
+        sequenceOfCommands,300, TimeUnit.MILLISECONDS);
+    HashMap<String,Object> evalParams  = new HashMap<>();
+    evalParams.put("y", 2);
+    PythonRequestResponse<Long> result = interpreterWrapper.eval(1L,1L,
+        "x = x * y;time.sleep(1)","x",
+        evalParams,10, TimeUnit.MILLISECONDS,false,Long.class);
+    Thread.sleep(2000);
+    // only the next command will result in the queue getting drained of previous requests hence below
+    sequenceOfCommands = new ArrayList();
+    sequenceOfCommands.add("x=5");
+    resultOne = interpreterWrapper.runCommands(1L,1L,
+      sequenceOfCommands,300, TimeUnit.MILLISECONDS);
+    assertFalse(delayedResponseQueueForWrapper.isEmpty());
 
   }
 

@@ -39,7 +39,7 @@ public class InterpreterWrapper
   private transient BlockingQueue<PythonRequestResponse> requestQueue;
   private transient BlockingQueue<PythonRequestResponse> responseQueue;
 
-  private transient BlockingQueue<PythonRequestResponse> delayedResponsesQueue;
+  private transient volatile BlockingQueue<PythonRequestResponse> delayedResponsesQueue;
 
 
   public InterpreterWrapper(String interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef)
@@ -86,6 +86,7 @@ public class InterpreterWrapper
     boolean isCurrentRequestProcessed = false;
     long timeOutInNanos = TimeUnit.NANOSECONDS.convert(timeout,timeUnit);
     request.getPythonInterpreterRequest().setTimeOutInNanos(timeOutInNanos); // To be used in command history invocation
+    request.getPythonInterpreterRequest().setExpectedReturnType(clazz);
     // drain any previous responses that were returned while the Apex operator is processing
     responseQueue.drainTo(drainedResults);
     LOG.debug("Draining previous request responses if any " + drainedResults.size());
@@ -103,8 +104,7 @@ public class InterpreterWrapper
     long timeLeftToCompleteProcessing = timeOutInNanos;
     while ( (!isCurrentRequestProcessed) && ( timeLeftToCompleteProcessing > 0 )) {
       try {
-        LOG.debug("Submitting the interpreter Request with time out in nanos as " + timeOutInNanos +
-            " with current time as " + System.currentTimeMillis());
+        LOG.debug("Submitting the interpreter Request with time out in nanos as " + timeOutInNanos);
         requestQueue.put(request);
         // ensures we are blocked till the time limit
         currentRequestWithResponse = responseQueue.poll(timeOutInNanos, TimeUnit.NANOSECONDS);

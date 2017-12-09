@@ -149,7 +149,7 @@ public class InterpreterThread implements Runnable
       boolean deleteExtractedVariable,Class<T> expectedReturnType) throws ApexPythonInterpreterException
   {
     T variableToReturn = null;
-    LOG.debug(" params for eval passed in are " + command + " " + expectedReturnType);
+    LOG.debug(" params for eval passed in are " + command + " return type:" + expectedReturnType);
     try {
       for (String aKey : globalMethodsParams.keySet()) {
         JEP_INSTANCE.set(aKey, globalMethodsParams.get(aKey));
