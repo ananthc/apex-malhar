@@ -12,6 +12,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
@@ -51,13 +52,14 @@ public class InterpreterWrapperTest extends BaseJEPTest
     PythonRequestResponse<Long> result = interpreterWrapper.eval(1L,1L,
         "x = x * y;time.sleep(1)","x",
         evalParams,10, TimeUnit.MILLISECONDS,false,Long.class);
-    Thread.sleep(2000);
+    Thread.sleep(3000);
     // only the next command will result in the queue getting drained of previous requests hence below
     sequenceOfCommands = new ArrayList();
     sequenceOfCommands.add("x=5");
     resultOne = interpreterWrapper.runCommands(1L,1L,
       sequenceOfCommands,300, TimeUnit.MILLISECONDS);
     assertFalse(delayedResponseQueueForWrapper.isEmpty());
+    assertEquals(2, delayedResponseQueueForWrapper.drainTo(new ArrayList<>()));
 
   }
 
