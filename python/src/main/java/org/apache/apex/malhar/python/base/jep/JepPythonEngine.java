@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,7 +97,7 @@ public class JepPythonEngine implements ApexPythonEngine
   }
 
   @Override
-  public void postStartInterpreter() throws ApexPythonInterpreterException, TimeoutException
+  public void postStartInterpreter() throws ApexPythonInterpreterException
   {
     for ( InterpreterWrapper wrapper : workers) {
       for (PythonRequestResponse requestResponse : commandHistory) {
@@ -111,7 +110,7 @@ public class JepPythonEngine implements ApexPythonEngine
 
   @Override
   public Map<String,PythonRequestResponse>  runCommands(WorkerExecutionMode executionMode,long windowId,long requestId,
-      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
+      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException
   {
     Map<String,PythonRequestResponse> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
@@ -143,7 +142,7 @@ public class JepPythonEngine implements ApexPythonEngine
   @Override
   public <T> Map<String,PythonRequestResponse<T>> executeMethodCall(WorkerExecutionMode executionMode,long windowId,
       long requestId, String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
-      Class<T> expectedReturnType) throws ApexPythonInterpreterException, TimeoutException
+      Class<T> expectedReturnType) throws ApexPythonInterpreterException
   {
     Map<String,PythonRequestResponse<T>> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
@@ -173,7 +172,7 @@ public class JepPythonEngine implements ApexPythonEngine
   @Override
   public Map<String,PythonRequestResponse>  executeScript(WorkerExecutionMode executionMode,long windowId,
       long requestId, String scriptName,long timeout, TimeUnit timeUnit)
-    throws ApexPythonInterpreterException,TimeoutException
+    throws ApexPythonInterpreterException
   {
     Map<String,PythonRequestResponse> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
@@ -204,7 +203,7 @@ public class JepPythonEngine implements ApexPythonEngine
   public <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode,long windowId, long requestId,
       String command, String variableNameToFetch,Map<String, Object> globalMethodsParams,long timeout,TimeUnit timeUnit,
       boolean deleteExtractedVariable,Class<T> expectedReturnType)
-    throws ApexPythonInterpreterException,TimeoutException
+    throws ApexPythonInterpreterException
   {
     Map<String,PythonRequestResponse<T>> statusOfEval = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;

@@ -52,5 +52,26 @@ public class JepPythonEngineTest extends BaseJEPTest
     Thread.sleep(5000); // ensures other tests in this class can use this engine after this test
   }
 
+  @JepPythonTestContext(jepPythonBasedTest = true)
+  @Test
+  public void testWorkerExecutionMode() throws Exception
+  {
+    String methodName = "multiply";
+    List<String> commands = new ArrayList();
+    commands.add("def " + methodName + "(firstnum, secondnum):\n" +
+        "\treturn (firstnum * secondnum)\n"); // Note that this cannot be split as multiple commands
+    for (int i = 0; i < jepPythonEngine.getNumWorkerThreads(); i++) {
+      InterpreterWrapper aWrapper = jepPythonEngine.getWorkers().get(i);
+      aWrapper.runCommands(1L,1L,commands,5,TimeUnit.MILLISECONDS);
+    }
+
+    List<Long> params = new ArrayList<>();
+    params.add(5L);
+    params.add(25L);
+
+
+  }
 
 }
+
+

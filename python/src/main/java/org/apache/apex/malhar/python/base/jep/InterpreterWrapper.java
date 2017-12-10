@@ -8,7 +8,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,7 +77,7 @@ public class InterpreterWrapper
   }
 
   public <T> PythonRequestResponse<T> processRequest(PythonRequestResponse request, long timeout, TimeUnit timeUnit,
-      Class<T> clazz) throws ApexPythonInterpreterException, TimeoutException
+      Class<T> clazz) throws ApexPythonInterpreterException
   {
     List<PythonRequestResponse> drainedResults = new ArrayList<>();
     PythonRequestResponse currentRequestWithResponse = null;
@@ -132,7 +131,7 @@ public class InterpreterWrapper
   }
 
   public PythonRequestResponse runCommands(long windowId, long requestId,
-      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException, TimeoutException
+      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException
   {
     PythonRequestResponse requestResponse = buildRequestObject(PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS,
         windowId,requestId,Void.class);
@@ -143,7 +142,7 @@ public class InterpreterWrapper
   public <T> PythonRequestResponse<T> executeMethodCall(long windowId, long requestId,
       String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
       Class<T> expectedReturnType)
-    throws ApexPythonInterpreterException, TimeoutException
+    throws ApexPythonInterpreterException
   {
     PythonRequestResponse requestResponse = buildRequestObject(
         PythonRequestResponse.PythonCommandType.METHOD_INVOCATION_COMMAND,
@@ -154,8 +153,7 @@ public class InterpreterWrapper
   }
 
   public PythonRequestResponse executeScript(long windowId, long requestId, String scriptName,
-      long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException,
-    TimeoutException
+      long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException
   {
     PythonRequestResponse<Void> requestResponse = buildRequestObject(
         PythonRequestResponse.PythonCommandType.SCRIPT_COMMAND, windowId,requestId,Void.class);
@@ -167,7 +165,7 @@ public class InterpreterWrapper
   public <T> PythonRequestResponse<T> eval(long windowId, long requestId,String command,
       String variableNameToFetch, Map<String, Object> paramsForEval, long timeout, TimeUnit timeUnit,
       boolean deleteExtractedVariable, Class<T> expectedReturnType)
-    throws ApexPythonInterpreterException,TimeoutException
+    throws ApexPythonInterpreterException
   {
     PythonRequestResponse<T> requestResponse = buildRequestObject(
         PythonRequestResponse.PythonCommandType.EVAL_COMMAND, windowId,requestId,expectedReturnType);
