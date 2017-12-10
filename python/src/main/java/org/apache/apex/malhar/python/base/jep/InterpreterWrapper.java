@@ -13,7 +13,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
-import org.apache.apex.malhar.python.base.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.requestresponse.EvalCommandRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.GenericCommandsRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.MethodCallRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterResponse;
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
@@ -60,19 +66,36 @@ public class InterpreterWrapper
     handleToJepRunner = executorService.submit(interpreterThread);
   }
 
-  private <T> PythonRequestResponse<T> buildRequestObject(PythonRequestResponse.PythonCommandType commandType,
-      long windowId,long requestId, Class<T> tClass)
+  private <T> PythonRequestResponse<T> buildRequestObject(PythonCommandType commandType,
+      long windowId,long requestId, Class<T> tClass) throws ApexPythonInterpreterException
   {
     PythonRequestResponse<T> requestResponse = new PythonRequestResponse();
-    PythonRequestResponse<T>.PythonInterpreterRequest<T> request = requestResponse.new PythonInterpreterRequest<>();
-    PythonRequestResponse<T>.PythonInterpreterResponse<T> response =
-        requestResponse.new PythonInterpreterResponse<>(tClass);
+    PythonInterpreterRequest<T> request = new PythonInterpreterRequest<>();
+    requestResponse.setPythonInterpreterRequest(request);
+    PythonInterpreterResponse<T> response = new PythonInterpreterResponse<>(tClass);
+    requestResponse.setPythonInterpreterResponse(response);
     requestResponse.setPythonInterpreterRequest(request);
     requestResponse.setPythonInterpreterResponse(response);
     request.setCommandType(commandType);
     requestResponse.setRequestStartTime(System.currentTimeMillis());
     requestResponse.setRequestId(requestId);
     requestResponse.setWindowId(windowId);
+    switch (commandType) {
+      case METHOD_INVOCATION_COMMAND:
+        MethodCallRequestPayload methodCallRequest = new MethodCallRequestPayload();
+        request.setMethodCallRequest(methodCallRequest);
+        break;
+      case GENERIC_COMMANDS:
+        GenericCommandsRequestPayload genericPayload = new GenericCommandsRequestPayload();
+        request.setGenericCommandsRequestPayload(genericPayload);
+        break;
+      case EVAL_COMMAND:
+        EvalCommandRequestPayload evalPayload = new EvalCommandRequestPayload();
+        request.setEvalCommandRequestPayload(evalPayload);
+        break;
+      default:
+        throw new ApexPythonInterpreterException("Unsupported command type");
+    }
     return requestResponse;
   }
 
@@ -133,9 +156,9 @@ public class InterpreterWrapper
   public PythonRequestResponse runCommands(long windowId, long requestId,
       List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException
   {
-    PythonRequestResponse requestResponse = buildRequestObject(PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS,
+    PythonRequestResponse requestResponse = buildRequestObject(PythonCommandType.GENERIC_COMMANDS,
         windowId,requestId,Void.class);
-    requestResponse.getPythonInterpreterRequest().setGenericCommands(commands);
+    requestResponse.getPythonInterpreterRequest().getGenericCommandsRequestPayload().setGenericCommands(commands);
     return processRequest(requestResponse,timeout,timeUnit,Void.class);
   }
 
@@ -145,10 +168,12 @@ public class InterpreterWrapper
     throws ApexPythonInterpreterException
   {
     PythonRequestResponse requestResponse = buildRequestObject(
-        PythonRequestResponse.PythonCommandType.METHOD_INVOCATION_COMMAND,
+        PythonCommandType.METHOD_INVOCATION_COMMAND,
         windowId,requestId,expectedReturnType);
-    requestResponse.getPythonInterpreterRequest().setNameOfMethodForMethodCallInvocation(nameOfGlobalMethod);
-    requestResponse.getPythonInterpreterRequest().setArgsToMethodCallInvocation(argsToGlobalMethod);
+    requestResponse.getPythonInterpreterRequest().getMethodCallRequest().setNameOfMethod(
+        nameOfGlobalMethod);
+    requestResponse.getPythonInterpreterRequest().getMethodCallRequest().setArgs(
+        argsToGlobalMethod);
     return processRequest(requestResponse,timeout,timeUnit, expectedReturnType);
   }
 
@@ -156,9 +181,9 @@ public class InterpreterWrapper
       long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException
   {
     PythonRequestResponse<Void> requestResponse = buildRequestObject(
-        PythonRequestResponse.PythonCommandType.SCRIPT_COMMAND, windowId,requestId,Void.class);
-    PythonRequestResponse<Void>.PythonInterpreterRequest<Void> request = requestResponse.getPythonInterpreterRequest();
-    request.setScriptName(scriptName);
+        PythonCommandType.SCRIPT_COMMAND, windowId,requestId,Void.class);
+    PythonInterpreterRequest<Void> request = requestResponse.getPythonInterpreterRequest();
+    request.getScriptExecutionRequestPayload().setScriptName(scriptName);
     return processRequest(requestResponse,timeout,timeUnit,Void.class);
   }
 
@@ -168,12 +193,13 @@ public class InterpreterWrapper
     throws ApexPythonInterpreterException
   {
     PythonRequestResponse<T> requestResponse = buildRequestObject(
-        PythonRequestResponse.PythonCommandType.EVAL_COMMAND, windowId,requestId,expectedReturnType);
-    PythonRequestResponse<T>.PythonInterpreterRequest<T> request = requestResponse.getPythonInterpreterRequest();
-    request.setEvalCommand(command);
-    request.setVariableNameToExtractInEvalCall(variableNameToFetch);
-    request.setDeleteVariableAfterEvalCall(deleteExtractedVariable);
-    request.setParamsForEvalCommand(paramsForEval);
+        PythonCommandType.EVAL_COMMAND, windowId,requestId,expectedReturnType);
+    PythonInterpreterRequest<T> request = requestResponse.getPythonInterpreterRequest();
+    EvalCommandRequestPayload evalCommandRequestPayload = request.getEvalCommandRequestPayload();
+    evalCommandRequestPayload.setEvalCommand(command);
+    evalCommandRequestPayload.setVariableNameToExtractInEvalCall(variableNameToFetch);
+    evalCommandRequestPayload.setDeleteVariableAfterEvalCall(deleteExtractedVariable);
+    evalCommandRequestPayload.setParamsForEvalCommand(paramsForEval);
     return processRequest(requestResponse,timeout,timeUnit, expectedReturnType);
   }
 

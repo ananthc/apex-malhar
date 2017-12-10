@@ -9,7 +9,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.apex.malhar.python.base.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
 import static org.junit.Assert.assertEquals;

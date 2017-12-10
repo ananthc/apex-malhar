@@ -12,8 +12,9 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.ApexPythonEngine;
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
-import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
@@ -101,7 +102,7 @@ public class JepPythonEngine implements ApexPythonEngine
   {
     for ( InterpreterWrapper wrapper : workers) {
       for (PythonRequestResponse requestResponse : commandHistory) {
-        PythonRequestResponse.PythonInterpreterRequest requestPayload = requestResponse.getPythonInterpreterRequest();
+        PythonInterpreterRequest requestPayload = requestResponse.getPythonInterpreterRequest();
         wrapper.processRequest(requestResponse,requestPayload.getTimeOutInNanos(), TimeUnit.NANOSECONDS,
             requestPayload.getExpectedReturnType());
       }

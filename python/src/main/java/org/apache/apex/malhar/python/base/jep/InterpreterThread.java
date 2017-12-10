@@ -11,7 +11,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
-import org.apache.apex.malhar.python.base.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.requestresponse.EvalCommandRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.MethodCallRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterResponse;
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.requestresponse.ScriptExecutionRequestPayload;
 
 import jep.Jep;
 import jep.JepConfig;
@@ -198,44 +203,47 @@ public class InterpreterThread implements Runnable
     if (requestResponseHandle != null) {
       LOG.debug("Processing command " + requestResponseHandle.getPythonInterpreterRequest().getCommandType());
       busyFlag = true;
-      PythonRequestResponse<T>.PythonInterpreterRequest<T> request =
+      PythonInterpreterRequest<T> request =
           requestResponseHandle.getPythonInterpreterRequest();
-      PythonRequestResponse<T>.PythonInterpreterResponse<T> response =
+      PythonInterpreterResponse<T> response =
           requestResponseHandle.getPythonInterpreterResponse();
       Map<String,Boolean> commandStatus = new HashMap<>(1);
       switch (request.getCommandType()) {
         case EVAL_COMMAND:
-          T responseVal = eval(request.getEvalCommand(), request.getVariableNameToExtractInEvalCall(),
-              request.getParamsForEvalCommand(), request.isDeleteVariableAfterEvalCall(),
+          EvalCommandRequestPayload evalPayload = request.getEvalCommandRequestPayload();
+          T responseVal = eval(evalPayload.getEvalCommand(), evalPayload.getVariableNameToExtractInEvalCall(),
+              evalPayload.getParamsForEvalCommand(), evalPayload.isDeleteVariableAfterEvalCall(),
               request.getExpectedReturnType());
           response.setResponse(responseVal);
           if (responseVal != null) {
-            commandStatus.put(request.getEvalCommand(),Boolean.TRUE);
+            commandStatus.put(evalPayload.getEvalCommand(),Boolean.TRUE);
           } else {
-            commandStatus.put(request.getEvalCommand(),Boolean.FALSE);
+            commandStatus.put(evalPayload.getEvalCommand(),Boolean.FALSE);
           }
           response.setCommandStatus(commandStatus);
           break;
         case SCRIPT_COMMAND:
-          if (executeScript(request.getScriptName())) {
-            commandStatus.put(request.getScriptName(),Boolean.TRUE);
+          ScriptExecutionRequestPayload scriptPayload = request.getScriptExecutionRequestPayload();
+          if (executeScript(scriptPayload.getScriptName())) {
+            commandStatus.put(scriptPayload.getScriptName(),Boolean.TRUE);
           } else {
-            commandStatus.put(request.getScriptName(),Boolean.FALSE);
+            commandStatus.put(scriptPayload.getScriptName(),Boolean.FALSE);
           }
           response.setCommandStatus(commandStatus);
           break;
         case METHOD_INVOCATION_COMMAND:
-          response.setResponse(executeMethodCall(request.getNameOfMethodForMethodCallInvocation(),
-              request.getArgsToMethodCallInvocation(), request.getExpectedReturnType()));
+          MethodCallRequestPayload requestpayload = request.getMethodCallRequest();
+          response.setResponse(executeMethodCall(
+              requestpayload.getNameOfMethod(), requestpayload.getArgs(), request.getExpectedReturnType()));
           if (response.getResponse() == null) {
-            commandStatus.put(request.getNameOfMethodForMethodCallInvocation(), Boolean.FALSE);
+            commandStatus.put(requestpayload.getNameOfMethod(), Boolean.FALSE);
           } else {
-            commandStatus.put(request.getNameOfMethodForMethodCallInvocation(), Boolean.TRUE);
+            commandStatus.put(requestpayload.getNameOfMethod(), Boolean.TRUE);
           }
           response.setCommandStatus(commandStatus);
           break;
         case GENERIC_COMMANDS:
-          response.setCommandStatus(runCommands(request.getGenericCommands()));
+          response.setCommandStatus(runCommands(request.getGenericCommandsRequestPayload().getGenericCommands()));
           break;
         default:
           throw new ApexPythonInterpreterException(new Exception("Unspecified Interpreter command"));

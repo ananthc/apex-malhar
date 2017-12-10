@@ -14,7 +14,10 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.apex.malhar.python.base.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.requestresponse.EvalCommandRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.MethodCallRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
 import static org.junit.Assert.assertEquals;
@@ -63,14 +66,15 @@ public class InterpreterThreadTest extends BaseJEPTest
         "\treturn (firstnum * secondnum)\n"); // Note that this cannot be split as multiple commands
     runCommands(commands);
 
-    List<Long> params = new ArrayList<>();
+    List<Object> params = new ArrayList<>();
     params.add(5L);
     params.add(25L);
 
     PythonRequestResponse<Long> methodCallRequest = buildRequestResponseObjectForLongPayload(
-        PythonRequestResponse.PythonCommandType.METHOD_INVOCATION_COMMAND);
-    methodCallRequest.getPythonInterpreterRequest().setNameOfMethodForMethodCallInvocation(methodName);
-    methodCallRequest.getPythonInterpreterRequest().setArgsToMethodCallInvocation(params);
+        PythonCommandType.METHOD_INVOCATION_COMMAND);
+    MethodCallRequestPayload requestPayload = methodCallRequest.getPythonInterpreterRequest().getMethodCallRequest();
+    requestPayload.setNameOfMethod(methodName);
+    requestPayload.setArgs(params);
     methodCallRequest.getPythonInterpreterRequest().setExpectedReturnType(Long.class);
 
     pythonEngineThread.getRequestQueue().put(methodCallRequest);
@@ -82,10 +86,11 @@ public class InterpreterThreadTest extends BaseJEPTest
     assertTrue(commandStatus.get(methodName));
 
     params.remove(1);
-    methodCallRequest = buildRequestResponseObjectForLongPayload(
-      PythonRequestResponse.PythonCommandType.METHOD_INVOCATION_COMMAND);
-    methodCallRequest.getPythonInterpreterRequest().setNameOfMethodForMethodCallInvocation(methodName);
-    methodCallRequest.getPythonInterpreterRequest().setArgsToMethodCallInvocation(params);
+    methodCallRequest = buildRequestResponseObjectForLongPayload(PythonCommandType.METHOD_INVOCATION_COMMAND);
+    requestPayload = methodCallRequest
+        .getPythonInterpreterRequest().getMethodCallRequest();
+    requestPayload.setNameOfMethod(methodName);
+    requestPayload.setArgs(params);
     methodCallRequest.getPythonInterpreterRequest().setExpectedReturnType(Long.class);
 
     pythonEngineThread.getRequestQueue().put(methodCallRequest);
@@ -104,8 +109,9 @@ public class InterpreterThreadTest extends BaseJEPTest
     String filePathForFactorialScript = tempFileForScript.getAbsolutePath();
     migrateFileFromResourcesFolderToTemp("factorial.py",filePathForFactorialScript);
     PythonRequestResponse<Void> methodCallRequest = buildRequestResponseObjectForVoidPayload(
-        PythonRequestResponse.PythonCommandType.SCRIPT_COMMAND);
-    methodCallRequest.getPythonInterpreterRequest().setScriptName(filePathForFactorialScript);
+        PythonCommandType.SCRIPT_COMMAND);
+    methodCallRequest.getPythonInterpreterRequest().getScriptExecutionRequestPayload().setScriptName(
+        filePathForFactorialScript);
     pythonEngineThread.getRequestQueue().put(methodCallRequest);
     Thread.sleep(1000); // wait for command to be processed
     PythonRequestResponse<Void> methodCallResponse = pythonEngineThread.getResponseQueue().poll(1,
@@ -133,11 +139,12 @@ public class InterpreterThreadTest extends BaseJEPTest
     argsForEval.put("a",a);
     argsForEval.put("b",b);
     PythonRequestResponse<Long> methodCallRequest = buildRequestResponseObjectForLongPayload(
-        PythonRequestResponse.PythonCommandType.EVAL_COMMAND);
-    methodCallRequest.getPythonInterpreterRequest().setEvalCommand(expression);
-    methodCallRequest.getPythonInterpreterRequest().setParamsForEvalCommand(argsForEval);
-    methodCallRequest.getPythonInterpreterRequest().setDeleteVariableAfterEvalCall(true);
-    methodCallRequest.getPythonInterpreterRequest().setVariableNameToExtractInEvalCall("x");
+        PythonCommandType.EVAL_COMMAND);
+    EvalCommandRequestPayload payload = methodCallRequest.getPythonInterpreterRequest().getEvalCommandRequestPayload();
+    payload.setEvalCommand(expression);
+    payload.setParamsForEvalCommand(argsForEval);
+    payload.setDeleteVariableAfterEvalCall(true);
+    payload.setVariableNameToExtractInEvalCall("x");
     methodCallRequest.getPythonInterpreterRequest().setExpectedReturnType(Long.class);
     pythonEngineThread.getRequestQueue().put(methodCallRequest);
     Thread.sleep(1000); // wait for command to be processed

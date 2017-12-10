@@ -4,6 +4,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
+
 /**
  * An interface that allows implementations to provide a mechanism to return back a type T by running a
  * a python method.

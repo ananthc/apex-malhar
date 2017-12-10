@@ -10,7 +10,15 @@ import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.apex.malhar.python.base.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
+import org.apache.apex.malhar.python.base.requestresponse.EvalCommandRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.GenericCommandsRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.MethodCallRequestPayload;
+import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterResponse;
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.requestresponse.ScriptExecutionRequestPayload;
 import org.apache.apex.malhar.python.test.BasePythonTest;
 
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
@@ -66,56 +74,74 @@ public class BaseJEPTest extends BasePythonTest
     }
   }
 
-  public PythonRequestResponse<Void> buildRequestResponseObjectForVoidPayload(
-      PythonRequestResponse.PythonCommandType commandType) throws Exception
+  private void setCommonConstructsForRequestResponseObject(PythonCommandType commandType,
+      PythonInterpreterRequest request, PythonRequestResponse requestResponse )
+    throws ApexPythonInterpreterException
   {
-    PythonRequestResponse<Void> requestResponse = new PythonRequestResponse();
-    PythonRequestResponse<Void>.PythonInterpreterRequest<Void> request =
-        requestResponse.new PythonInterpreterRequest<>();
-    PythonRequestResponse<Void>.PythonInterpreterResponse<Void> response =
-        requestResponse.new PythonInterpreterResponse<>(Void.class);
-    requestResponse.setPythonInterpreterRequest(request);
-    requestResponse.setPythonInterpreterResponse(response);
     request.setCommandType(commandType);
     requestResponse.setRequestStartTime(System.currentTimeMillis());
     requestResponse.setRequestId(1L);
     requestResponse.setWindowId(1L);
+    switch (commandType) {
+      case EVAL_COMMAND:
+        EvalCommandRequestPayload payload = new EvalCommandRequestPayload();
+        request.setEvalCommandRequestPayload(payload);
+        break;
+      case METHOD_INVOCATION_COMMAND:
+        MethodCallRequestPayload methodCallRequest = new MethodCallRequestPayload();
+        request.setMethodCallRequest(methodCallRequest);
+        break;
+      case SCRIPT_COMMAND:
+        ScriptExecutionRequestPayload scriptPayload = new ScriptExecutionRequestPayload();
+        request.setScriptExecutionRequestPayload(scriptPayload);
+        break;
+      case GENERIC_COMMANDS:
+        GenericCommandsRequestPayload payloadForGenericCommands = new GenericCommandsRequestPayload();
+        request.setGenericCommandsRequestPayload(payloadForGenericCommands);
+        break;
+      default:
+        throw new ApexPythonInterpreterException("Unsupported command type");
+    }
+
+  }
+
+  public PythonRequestResponse<Void> buildRequestResponseObjectForVoidPayload(PythonCommandType commandType)
+      throws Exception
+  {
+    PythonRequestResponse<Void> requestResponse = new PythonRequestResponse();
+    PythonInterpreterRequest<Void> request = new PythonInterpreterRequest<>();
+    PythonInterpreterResponse<Void> response = new PythonInterpreterResponse<>(Void.class);
+    requestResponse.setPythonInterpreterRequest(request);
+    requestResponse.setPythonInterpreterResponse(response);
+    setCommonConstructsForRequestResponseObject(commandType,request,requestResponse);
     return requestResponse;
   }
 
   public PythonRequestResponse<Long> buildRequestResponseObjectForLongPayload(
-      PythonRequestResponse.PythonCommandType commandType) throws Exception
+      PythonCommandType commandType) throws Exception
   {
     PythonRequestResponse<Long> requestResponse = new PythonRequestResponse();
-    PythonRequestResponse<Long>.PythonInterpreterRequest<Long> request =
-        requestResponse.new PythonInterpreterRequest<>();
-    PythonRequestResponse<Long>.PythonInterpreterResponse<Long> response =
-        requestResponse.new PythonInterpreterResponse<>(Long.class);
+    PythonInterpreterRequest<Long> request = new PythonInterpreterRequest<>();
+    requestResponse.setPythonInterpreterRequest(request);
+    PythonInterpreterResponse<Long> response = new PythonInterpreterResponse<>(Long.class);
     requestResponse.setPythonInterpreterRequest(request);
     requestResponse.setPythonInterpreterResponse(response);
-    request.setCommandType(commandType);
-    requestResponse.setRequestStartTime(System.currentTimeMillis());
-    requestResponse.setRequestId(1L);
-    requestResponse.setWindowId(1L);
+    setCommonConstructsForRequestResponseObject(commandType,request,requestResponse);
     return requestResponse;
   }
 
 
 
   public PythonRequestResponse<Integer> buildRequestResponseObjectForIntPayload(
-      PythonRequestResponse.PythonCommandType commandType) throws Exception
+      PythonCommandType commandType) throws Exception
   {
     PythonRequestResponse<Integer> requestResponse = new PythonRequestResponse();
-    PythonRequestResponse<Integer>.PythonInterpreterRequest<Integer> request =
-        requestResponse.new PythonInterpreterRequest<>();
-    PythonRequestResponse<Integer>.PythonInterpreterResponse<Integer> response =
-        requestResponse.new PythonInterpreterResponse<>(Integer.class);
+    PythonInterpreterRequest<Integer> request = new PythonInterpreterRequest<>();
+    requestResponse.setPythonInterpreterRequest(request);
+    PythonInterpreterResponse<Integer> response = new PythonInterpreterResponse<>(Integer.class);
     requestResponse.setPythonInterpreterRequest(request);
     requestResponse.setPythonInterpreterResponse(response);
-    request.setCommandType(commandType);
-    requestResponse.setRequestStartTime(System.currentTimeMillis());
-    requestResponse.setRequestId(1L);
-    requestResponse.setWindowId(1L);
+    setCommonConstructsForRequestResponseObject(commandType,request,requestResponse);
     return requestResponse;
   }
 
@@ -123,8 +149,8 @@ public class BaseJEPTest extends BasePythonTest
   protected PythonRequestResponse<Void> runCommands(List<String> commands) throws Exception
   {
     PythonRequestResponse<Void> runCommandsRequest = buildRequestResponseObjectForVoidPayload(
-        PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
-    runCommandsRequest.getPythonInterpreterRequest().setGenericCommands(commands);
+        PythonCommandType.GENERIC_COMMANDS);
+    runCommandsRequest.getPythonInterpreterRequest().getGenericCommandsRequestPayload().setGenericCommands(commands);
     pythonEngineThread.getRequestQueue().put(runCommandsRequest);
     Thread.sleep(1000); // wait for command to be processed
     return pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS);

@@ -12,8 +12,9 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.apex.malhar.python.base.PythonRequestResponse;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
+import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
 import static org.junit.Assert.assertEquals;
@@ -114,8 +115,9 @@ public class JepPythonEngineTest extends BaseJEPTest
     List<String> commandsForPreInit = new ArrayList<>();
     commandsForPreInit.add("x=5");
     PythonRequestResponse<Void> aHistoryCommand = buildRequestResponseObjectForVoidPayload(
-        PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
-    aHistoryCommand.getPythonInterpreterRequest().setGenericCommands(commandsForPreInit);
+        PythonCommandType.GENERIC_COMMANDS);
+    aHistoryCommand.getPythonInterpreterRequest()
+        .getGenericCommandsRequestPayload().setGenericCommands(commandsForPreInit);
     aHistoryCommand.getPythonInterpreterRequest().setTimeOutInNanos(
         TimeUnit.NANOSECONDS.convert(1,TimeUnit.SECONDS));
     List<PythonRequestResponse> historyOfCommands = new ArrayList<>();
