@@ -1,14 +1,10 @@
 package org.apache.apex.malhar.python.base.requestresponse;
 
-import java.util.concurrent.TimeUnit;
-
 public class PythonInterpreterRequest<T>
 {
   PythonCommandType commandType;
 
   long timeOutInNanos;
-
-  TimeUnit timeUnit;
 
   MethodCallRequestPayload methodCallRequest;
 
@@ -38,16 +34,6 @@ public class PythonInterpreterRequest<T>
   public void setTimeOutInNanos(long timeOutInNanos)
   {
     this.timeOutInNanos = timeOutInNanos;
-  }
-
-  public TimeUnit getTimeUnit()
-  {
-    return timeUnit;
-  }
-
-  public void setTimeUnit(TimeUnit timeUnit)
-  {
-    this.timeUnit = timeUnit;
   }
 
   public MethodCallRequestPayload getMethodCallRequest()
