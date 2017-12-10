@@ -118,7 +118,9 @@ public class JepPythonEngine implements ApexPythonEngine
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
       if ( currentThread != null) {
         lastSuccessfullySubmittedRequest = currentThread.runCommands(windowId,requestId,commands,timeout,timeUnit);
-        returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
+        if (lastSuccessfullySubmittedRequest != null) {
+          returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
+        }
       } else {
         throw new ApexPythonInterpreterException("No free interpreter threads available." +
           " Consider increasing workers and relaunch");
@@ -130,7 +132,9 @@ public class JepPythonEngine implements ApexPythonEngine
       }
       for ( InterpreterWrapper wrapper : workers) {
         lastSuccessfullySubmittedRequest = wrapper.runCommands(windowId,requestId,commands,timeOutPerWorker,timeUnit);
-        returnStatus.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
+        if (lastSuccessfullySubmittedRequest != null) {
+          returnStatus.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
+        }
       }
     }
     if ( returnStatus.size() > 0) {
@@ -150,14 +154,18 @@ public class JepPythonEngine implements ApexPythonEngine
       for ( InterpreterWrapper wrapper : workers) {
         lastSuccessfullySubmittedRequest = wrapper.executeMethodCall(windowId,requestId,nameOfGlobalMethod,
           argsToGlobalMethod, timeout,timeUnit,expectedReturnType);
-        returnStatus.put(wrapper.getInterpreterId(),lastSuccessfullySubmittedRequest);
+        if ( lastSuccessfullySubmittedRequest != null) {
+          returnStatus.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
+        }
       }
     } else {
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
       if ( currentThread != null) {
         lastSuccessfullySubmittedRequest = currentThread.executeMethodCall(windowId,requestId,
           nameOfGlobalMethod,argsToGlobalMethod,timeout,timeUnit,expectedReturnType);
-        returnStatus.put(currentThread.getInterpreterId(),lastSuccessfullySubmittedRequest);
+        if (lastSuccessfullySubmittedRequest != null) {
+          returnStatus.put(currentThread.getInterpreterId(),lastSuccessfullySubmittedRequest);
+        }
       } else {
         throw new ApexPythonInterpreterException("No free interpreter threads available." +
           " Consider increasing workers and relaunch");
@@ -180,14 +188,18 @@ public class JepPythonEngine implements ApexPythonEngine
       for ( InterpreterWrapper wrapper : workers) {
         lastSuccessfullySubmittedRequest = wrapper.executeScript(windowId,requestId,scriptName,
           timeout,timeUnit);
-        returnStatus.put(wrapper.getInterpreterId(),lastSuccessfullySubmittedRequest);
+        if (lastSuccessfullySubmittedRequest != null) {
+          returnStatus.put(wrapper.getInterpreterId(),lastSuccessfullySubmittedRequest);
+        }
       }
     } else {
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
       if (currentThread != null) {
         lastSuccessfullySubmittedRequest = currentThread.executeScript(windowId, requestId, scriptName,
           timeout, timeUnit);
-        returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
+        if (lastSuccessfullySubmittedRequest != null) {
+          returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
+        }
       } else {
         throw new ApexPythonInterpreterException("No free interpreter threads available." +
           " Consider increasing workers and relaunch");
@@ -212,7 +224,9 @@ public class JepPythonEngine implements ApexPythonEngine
       if ( currentThread != null) {
         lastSuccessfullySubmittedRequest = currentThread.eval(windowId,requestId,command,variableNameToFetch,
           globalMethodsParams, timeout,timeUnit, deleteExtractedVariable,expectedReturnType);
-        statusOfEval.put(currentThread.getInterpreterId(),lastSuccessfullySubmittedRequest);
+        if ( lastSuccessfullySubmittedRequest != null) {
+          statusOfEval.put(currentThread.getInterpreterId(),lastSuccessfullySubmittedRequest);
+        }
       } else {
         throw new ApexPythonInterpreterException("No free interpreter threads available." +
           " Consider increasing workers and relaunch");
@@ -225,7 +239,9 @@ public class JepPythonEngine implements ApexPythonEngine
       for ( InterpreterWrapper wrapper : workers) {
         lastSuccessfullySubmittedRequest = wrapper.eval(windowId,requestId,command,variableNameToFetch,
           globalMethodsParams, timeOutPerWorker,timeUnit, deleteExtractedVariable,expectedReturnType);
-        statusOfEval.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
+        if (lastSuccessfullySubmittedRequest != null) {
+          statusOfEval.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
+        }
       }
     }
     if ( statusOfEval.size() > 0) {

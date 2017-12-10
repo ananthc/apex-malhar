@@ -260,7 +260,7 @@ public class InterpreterThread implements Runnable
     while (!isStopped) {
       if (requestQueue.isEmpty()) {
         try {
-          Thread.sleep(1L);
+          Thread.sleep(0L,100);
           continue;
         } catch (InterruptedException e) {
           throw new RuntimeException(e);

@@ -1,8 +1,10 @@
 package org.apache.apex.malhar.python.base.jep;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
@@ -10,6 +12,8 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.apex.malhar.python.base.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
 import static org.junit.Assert.assertEquals;
@@ -67,7 +71,7 @@ public class JepPythonEngineTest extends BaseJEPTest
     Thread.sleep(5000); // ensures other tests in this class can use this engine after this test
   }
 
-  @JepPythonTestContext(jepPythonBasedTest = false)
+  @JepPythonTestContext(jepPythonBasedTest = true)
   @Test
   public void testWorkerExecutionMode() throws Exception
   {
@@ -77,14 +81,30 @@ public class JepPythonEngineTest extends BaseJEPTest
         "\treturn (firstnum * secondnum)\n"); // Note that this cannot be split as multiple commands
     for (int i = 0; i < jepPythonEngine.getNumWorkerThreads(); i++) {
       InterpreterWrapper aWrapper = jepPythonEngine.getWorkers().get(i);
-      aWrapper.runCommands(1L,1L,commands,5,TimeUnit.MILLISECONDS);
+      aWrapper.runCommands(1L,1L,commands,1000,TimeUnit.MILLISECONDS);
     }
+    HashMap<String,Object> params = new HashMap<>();
+    params.put("y",3);
+    Map<String,PythonRequestResponse<Long>> response = jepPythonEngine.eval(WorkerExecutionMode.ALL_WORKERS,
+        1L,1L,"x=multiply(4,y)",
+        "x", params,1000,TimeUnit.MILLISECONDS,false,Long.class);
+    for (String aWorkerId: response.keySet()) {
+      assertEquals(12L,response.get(aWorkerId).getPythonInterpreterResponse().getResponse());
+    }
+    assertEquals(jepPythonEngine.getNumWorkerThreads(),response.size()); // ensure all workers responded
 
-    List<Long> params = new ArrayList<>();
-    params.add(5L);
-    params.add(25L);
+    params = new HashMap<>();
+    params.put("y",6);
+    response = jepPythonEngine.eval(WorkerExecutionMode.ANY_WORKER,
+      1L,1L,"x=multiply(4,y)",
+      "x", params,1000,TimeUnit.MILLISECONDS,false,Long.class);
+    for (String aWorkerId: response.keySet()) {
+      assertEquals(24L,response.get(aWorkerId).getPythonInterpreterResponse().getResponse());
+    }
+    assertEquals(1,response.size()); // ensure all workers responded
 
 
+    Thread.sleep(5000); // ensure subsequent tests are not impacted by busy flags from current test
   }
 
 }
