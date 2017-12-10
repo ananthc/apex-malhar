@@ -12,8 +12,8 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -35,12 +35,27 @@ public class JepPythonEngineTest extends BaseJEPTest
       assertTrue(aWrapper.isCurrentlyBusy());
       overloadedWorkers.add(aWrapper.getInterpreterId());
     }
-    InterpreterWrapper candidateWrapperForExecution = jepPythonEngine.selectWorkerForCurrentCall(
-        jepPythonEngine.getNumWorkerThreads() - 1);
-    assertNotNull(candidateWrapperForExecution);
-    assertFalse(overloadedWorkers.contains(candidateWrapperForExecution.getInterpreterId()));
+    InterpreterWrapper candidateWrapperForExecution = null;
+    InterpreterWrapper validCandidateWrapperForExecution = null;
+    int counterForNullWorkers = 0;
+    int counterForValidWorkers = 0;
+    for ( int i = 0; i < jepPythonEngine.getNumWorkerThreads(); i++) {
+      candidateWrapperForExecution = jepPythonEngine.selectWorkerForCurrentCall(i);
+      if ( candidateWrapperForExecution == null) {
+        counterForNullWorkers += 1;
+      } else {
+        counterForValidWorkers += 1;
+        validCandidateWrapperForExecution = candidateWrapperForExecution;
+      }
+    }
+    // numWorker threads  because the select worker calls iterates over all workers to
+    // get any of the free workers. We did not give any worker for the 5th worker and hence should pass for all calls
+    assertEquals(jepPythonEngine.getNumWorkerThreads(), counterForValidWorkers);
+    assertEquals( 0, counterForNullWorkers); // None of the attempts should fail to get a worker
+    // Also we can only get that worker which has not been assigned a sleep instruction
+    assertFalse(overloadedWorkers.contains(validCandidateWrapperForExecution.getInterpreterId()));
     Thread.sleep(5000); // all the python workers must be free after this line
-
+    // we now test for all workers being busy
     for ( int i = 0; i < jepPythonEngine.getNumWorkerThreads(); i++) {
       InterpreterWrapper aWrapper = jepPythonEngine.getWorkers().get(i);
       aWrapper.runCommands(1L,i,busyCommands,2, TimeUnit.MILLISECONDS);
@@ -52,7 +67,7 @@ public class JepPythonEngineTest extends BaseJEPTest
     Thread.sleep(5000); // ensures other tests in this class can use this engine after this test
   }
 
-  @JepPythonTestContext(jepPythonBasedTest = true)
+  @JepPythonTestContext(jepPythonBasedTest = false)
   @Test
   public void testWorkerExecutionMode() throws Exception
   {
