@@ -80,6 +80,7 @@ public class InterpreterThread implements Runnable
   public void startInterpreter() throws ApexPythonInterpreterException
   {
     Thread.currentThread().setName(threadID);
+    Thread.currentThread().setPriority(Thread.MAX_PRIORITY); // To allow for time aware calls
     loadMandatoryJVMLibraries();
     JepConfig config = new JepConfig()
         .setRedirectOutputStreams(true)

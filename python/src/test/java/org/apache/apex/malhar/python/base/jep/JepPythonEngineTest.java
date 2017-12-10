@@ -102,9 +102,39 @@ public class JepPythonEngineTest extends BaseJEPTest
       assertEquals(24L,response.get(aWorkerId).getPythonInterpreterResponse().getResponse());
     }
     assertEquals(1,response.size()); // ensure all workers responded
-
-
     Thread.sleep(5000); // ensure subsequent tests are not impacted by busy flags from current test
+  }
+
+  @JepPythonTestContext(jepPythonBasedTest = true)
+  @Test
+  public void testPostStartInterpreterLogic() throws Exception
+  {
+    JepPythonEngine pythonEngineForPostInit = new JepPythonEngine("unit-tests-jeppythonengine",
+        5);
+    List<String> commandsForPreInit = new ArrayList<>();
+    commandsForPreInit.add("x=5");
+    PythonRequestResponse<Void> aHistoryCommand = buildRequestResponseObjectForVoidPayload(
+        PythonRequestResponse.PythonCommandType.GENERIC_COMMANDS);
+    aHistoryCommand.getPythonInterpreterRequest().setGenericCommands(commandsForPreInit);
+    aHistoryCommand.getPythonInterpreterRequest().setTimeOutInNanos(
+        TimeUnit.NANOSECONDS.convert(1,TimeUnit.SECONDS));
+    List<PythonRequestResponse> historyOfCommands = new ArrayList<>();
+    historyOfCommands.add(aHistoryCommand);
+    pythonEngineForPostInit.setCommandHistory(historyOfCommands);
+
+    pythonEngineForPostInit.preInitInterpreter(new HashMap<String,Object>());
+    pythonEngineForPostInit.startInterpreter();
+    pythonEngineForPostInit.postStartInterpreter();
+
+    HashMap<String,Object> params = new HashMap<>();
+    params.put("y",4);
+    Map<String,PythonRequestResponse<Long>> resultOfExecution = pythonEngineForPostInit.eval(
+        WorkerExecutionMode.ALL_WORKERS, 1L,1L,"x=x+y","x",params,
+        100,TimeUnit.MILLISECONDS,false,Long.class);
+    assertEquals(pythonEngineForPostInit.getNumWorkerThreads(),resultOfExecution.size());
+    for (String aWorkerId : resultOfExecution.keySet()) {
+      assertEquals(9L, resultOfExecution.get(aWorkerId).getPythonInterpreterResponse().getResponse());
+    }
   }
 
 }
