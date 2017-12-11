@@ -1,10 +1,14 @@
 package org.apache.apex.malhar.python.base.requestresponse;
 
+import java.util.concurrent.TimeUnit;
+
 public class PythonInterpreterRequest<T>
 {
   PythonCommandType commandType;
 
-  long timeOutInNanos;
+  long timeout;
+
+  TimeUnit timeUnit;
 
   MethodCallRequestPayload methodCallRequest;
 
@@ -16,6 +20,11 @@ public class PythonInterpreterRequest<T>
 
   Class<T> expectedReturnType;
 
+  public PythonInterpreterRequest(Class<T> expectedReturnType)
+  {
+    this.expectedReturnType = expectedReturnType;
+  }
+
   public PythonCommandType getCommandType()
   {
     return commandType;
@@ -24,16 +33,6 @@ public class PythonInterpreterRequest<T>
   public void setCommandType(PythonCommandType commandType)
   {
     this.commandType = commandType;
-  }
-
-  public long getTimeOutInNanos()
-  {
-    return timeOutInNanos;
-  }
-
-  public void setTimeOutInNanos(long timeOutInNanos)
-  {
-    this.timeOutInNanos = timeOutInNanos;
   }
 
   public MethodCallRequestPayload getMethodCallRequest()
@@ -84,5 +83,25 @@ public class PythonInterpreterRequest<T>
   public void setExpectedReturnType(Class<T> expectedReturnType)
   {
     this.expectedReturnType = expectedReturnType;
+  }
+
+  public long getTimeout()
+  {
+    return timeout;
+  }
+
+  public void setTimeout(long timeout)
+  {
+    this.timeout = timeout;
+  }
+
+  public TimeUnit getTimeUnit()
+  {
+    return timeUnit;
+  }
+
+  public void setTimeUnit(TimeUnit timeUnit)
+  {
+    this.timeUnit = timeUnit;
   }
 }

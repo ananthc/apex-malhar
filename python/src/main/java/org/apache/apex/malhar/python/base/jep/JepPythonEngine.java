@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.apex.malhar.python.base.ApexPythonEngine;
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
+import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 
@@ -36,8 +37,10 @@ public class JepPythonEngine implements ApexPythonEngine
 
   private int bufferCapacity = 64; // Represents the number of workers and response queue sizes
 
+  private long sleepTimeAfterInterpreterStart = 2000; // 2 secs
+
   private transient BlockingQueue<PythonRequestResponse> delayedResponseQueue =
-      new DisruptorBlockingQueue<PythonRequestResponse>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
+      new DisruptorBlockingQueue<>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
 
   private List<InterpreterWrapper> workers = new ArrayList<>();
 
@@ -68,8 +71,10 @@ public class JepPythonEngine implements ApexPythonEngine
       numWorkersScannedForAvailability  = numWorkersScannedForAvailability + 1;
       if (!aWorker.isCurrentlyBusy()) {
         isWorkerFound = true;
+        LOG.debug("Found worker with index as  " + slotToLookFor);
         break;
       } else {
+        LOG.debug("Thread ID is currently busy " + aWorker.getInterpreterId());
         slotToLookFor = slotToLookFor + 1;
         if ( slotToLookFor == numWorkerThreads) {
           slotToLookFor = 0;
@@ -95,6 +100,12 @@ public class JepPythonEngine implements ApexPythonEngine
   public void startInterpreter() throws ApexPythonInterpreterException
   {
     initWorkers();
+    try {
+      LOG.debug("Sleeping to let the interpreter boot up in memory");
+      Thread.sleep(2000);
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
@@ -103,22 +114,21 @@ public class JepPythonEngine implements ApexPythonEngine
     for ( InterpreterWrapper wrapper : workers) {
       for (PythonRequestResponse requestResponse : commandHistory) {
         PythonInterpreterRequest requestPayload = requestResponse.getPythonInterpreterRequest();
-        wrapper.processRequest(requestResponse,requestPayload.getTimeOutInNanos(), TimeUnit.NANOSECONDS,
-            requestPayload.getExpectedReturnType());
+        wrapper.processRequest(requestResponse,requestPayload);
       }
     }
   }
 
   @Override
-  public Map<String,PythonRequestResponse>  runCommands(WorkerExecutionMode executionMode,long windowId,long requestId,
-      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException
+  public Map<String,PythonRequestResponse<Void>> runCommands(WorkerExecutionMode executionMode,long windowId,
+      long requestId, PythonInterpreterRequest<Void> request) throws ApexPythonInterpreterException
   {
-    Map<String,PythonRequestResponse> returnStatus = new HashMap<>();
+    Map<String,PythonRequestResponse<Void>> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (!executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
       if ( currentThread != null) {
-        lastSuccessfullySubmittedRequest = currentThread.runCommands(windowId,requestId,commands,timeout,timeUnit);
+        lastSuccessfullySubmittedRequest = currentThread.runCommands(windowId,requestId,request);
         if (lastSuccessfullySubmittedRequest != null) {
           returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
         }
@@ -127,12 +137,15 @@ public class JepPythonEngine implements ApexPythonEngine
           " Consider increasing workers and relaunch");
       }
     } else {
-      long timeOutPerWorker = timeout / numWorkerThreads;
+      long  timeOutPerWorker = TimeUnit.NANOSECONDS.convert(request.getTimeout(),request.getTimeUnit()) /
+          numWorkerThreads;
       if ( timeOutPerWorker == 0) {
         timeOutPerWorker = 1;
       }
+      request.setTimeout(timeOutPerWorker);
+      request.setTimeUnit(TimeUnit.NANOSECONDS);
       for ( InterpreterWrapper wrapper : workers) {
-        lastSuccessfullySubmittedRequest = wrapper.runCommands(windowId,requestId,commands,timeOutPerWorker,timeUnit);
+        lastSuccessfullySubmittedRequest = wrapper.runCommands(windowId,requestId,request);
         if (lastSuccessfullySubmittedRequest != null) {
           returnStatus.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
         }
@@ -146,15 +159,14 @@ public class JepPythonEngine implements ApexPythonEngine
 
   @Override
   public <T> Map<String,PythonRequestResponse<T>> executeMethodCall(WorkerExecutionMode executionMode,long windowId,
-      long requestId, String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
-      Class<T> expectedReturnType) throws ApexPythonInterpreterException
+      long requestId, PythonInterpreterRequest<T> req) throws ApexPythonInterpreterException
   {
     Map<String,PythonRequestResponse<T>> returnStatus = new HashMap<>();
+    req.setCommandType(PythonCommandType.METHOD_INVOCATION_COMMAND);
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
       for ( InterpreterWrapper wrapper : workers) {
-        lastSuccessfullySubmittedRequest = wrapper.executeMethodCall(windowId,requestId,nameOfGlobalMethod,
-          argsToGlobalMethod, timeout,timeUnit,expectedReturnType);
+        lastSuccessfullySubmittedRequest = wrapper.executeMethodCall(windowId,requestId,req);
         if ( lastSuccessfullySubmittedRequest != null) {
           returnStatus.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
         }
@@ -162,8 +174,7 @@ public class JepPythonEngine implements ApexPythonEngine
     } else {
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
       if ( currentThread != null) {
-        lastSuccessfullySubmittedRequest = currentThread.executeMethodCall(windowId,requestId,
-          nameOfGlobalMethod,argsToGlobalMethod,timeout,timeUnit,expectedReturnType);
+        lastSuccessfullySubmittedRequest = currentThread.executeMethodCall(windowId,requestId,req);
         if (lastSuccessfullySubmittedRequest != null) {
           returnStatus.put(currentThread.getInterpreterId(),lastSuccessfullySubmittedRequest);
         }
@@ -179,16 +190,15 @@ public class JepPythonEngine implements ApexPythonEngine
   }
 
   @Override
-  public Map<String,PythonRequestResponse>  executeScript(WorkerExecutionMode executionMode,long windowId,
-      long requestId, String scriptName,long timeout, TimeUnit timeUnit)
+  public Map<String,PythonRequestResponse<Void>> executeScript(WorkerExecutionMode executionMode,long windowId,
+      long requestId, PythonInterpreterRequest<Void> req)
     throws ApexPythonInterpreterException
   {
-    Map<String,PythonRequestResponse> returnStatus = new HashMap<>();
+    Map<String,PythonRequestResponse<Void>> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
       for ( InterpreterWrapper wrapper : workers) {
-        lastSuccessfullySubmittedRequest = wrapper.executeScript(windowId,requestId,scriptName,
-          timeout,timeUnit);
+        lastSuccessfullySubmittedRequest = wrapper.executeScript(windowId,requestId,req);
         if (lastSuccessfullySubmittedRequest != null) {
           returnStatus.put(wrapper.getInterpreterId(),lastSuccessfullySubmittedRequest);
         }
@@ -196,8 +206,7 @@ public class JepPythonEngine implements ApexPythonEngine
     } else {
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
       if (currentThread != null) {
-        lastSuccessfullySubmittedRequest = currentThread.executeScript(windowId, requestId, scriptName,
-          timeout, timeUnit);
+        lastSuccessfullySubmittedRequest = currentThread.executeScript(windowId, requestId,req);
         if (lastSuccessfullySubmittedRequest != null) {
           returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
         }
@@ -214,8 +223,7 @@ public class JepPythonEngine implements ApexPythonEngine
 
   @Override
   public <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode,long windowId, long requestId,
-      String command, String variableNameToFetch,Map<String, Object> globalMethodsParams,long timeout,TimeUnit timeUnit,
-      boolean deleteExtractedVariable,Class<T> expectedReturnType)
+      PythonInterpreterRequest<T> request)
     throws ApexPythonInterpreterException
   {
     Map<String,PythonRequestResponse<T>> statusOfEval = new HashMap<>();
@@ -223,8 +231,7 @@ public class JepPythonEngine implements ApexPythonEngine
     if (!executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
       InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
       if ( currentThread != null) {
-        lastSuccessfullySubmittedRequest = currentThread.eval(windowId,requestId,command,variableNameToFetch,
-          globalMethodsParams, timeout,timeUnit, deleteExtractedVariable,expectedReturnType);
+        lastSuccessfullySubmittedRequest = currentThread.eval(windowId,requestId,request);
         if ( lastSuccessfullySubmittedRequest != null) {
           statusOfEval.put(currentThread.getInterpreterId(),lastSuccessfullySubmittedRequest);
         }
@@ -233,13 +240,15 @@ public class JepPythonEngine implements ApexPythonEngine
           " Consider increasing workers and relaunch");
       }
     } else {
-      long timeOutPerWorker = timeout / numWorkerThreads;
+      long timeOutPerWorker = TimeUnit.NANOSECONDS.convert(request.getTimeout(), request.getTimeUnit()) /
+          numWorkerThreads;
       if ( timeOutPerWorker == 0) {
         timeOutPerWorker = 1;
       }
+      request.setTimeout(timeOutPerWorker);
+      request.setTimeUnit(TimeUnit.NANOSECONDS);
       for ( InterpreterWrapper wrapper : workers) {
-        lastSuccessfullySubmittedRequest = wrapper.eval(windowId,requestId,command,variableNameToFetch,
-          globalMethodsParams, timeOutPerWorker,timeUnit, deleteExtractedVariable,expectedReturnType);
+        lastSuccessfullySubmittedRequest = wrapper.eval(windowId,requestId,request);
         if (lastSuccessfullySubmittedRequest != null) {
           statusOfEval.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
         }
@@ -287,5 +296,45 @@ public class JepPythonEngine implements ApexPythonEngine
   public void setCommandHistory(List<PythonRequestResponse> commandHistory)
   {
     this.commandHistory = commandHistory;
+  }
+
+  public long getSleepTimeAfterInterpreterStart()
+  {
+    return sleepTimeAfterInterpreterStart;
+  }
+
+  public void setSleepTimeAfterInterpreterStart(long sleepTimeAfterInterpreterStart)
+  {
+    this.sleepTimeAfterInterpreterStart = sleepTimeAfterInterpreterStart;
+  }
+
+  public BlockingQueue<PythonRequestResponse> getDelayedResponseQueue()
+  {
+    return delayedResponseQueue;
+  }
+
+  public void setDelayedResponseQueue(BlockingQueue<PythonRequestResponse> delayedResponseQueue)
+  {
+    this.delayedResponseQueue = delayedResponseQueue;
+  }
+
+  public SpinPolicy getCpuSpinPolicyForWaitingInBuffer()
+  {
+    return cpuSpinPolicyForWaitingInBuffer;
+  }
+
+  public void setCpuSpinPolicyForWaitingInBuffer(SpinPolicy cpuSpinPolicyForWaitingInBuffer)
+  {
+    this.cpuSpinPolicyForWaitingInBuffer = cpuSpinPolicyForWaitingInBuffer;
+  }
+
+  public int getBufferCapacity()
+  {
+    return bufferCapacity;
+  }
+
+  public void setBufferCapacity(int bufferCapacity)
+  {
+    this.bufferCapacity = bufferCapacity;
   }
 }

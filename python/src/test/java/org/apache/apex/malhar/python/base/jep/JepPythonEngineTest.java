@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
@@ -34,9 +35,12 @@ public class JepPythonEngineTest extends BaseJEPTest
     List<String> busyCommands = new ArrayList<>();
     busyCommands.add("import time");
     busyCommands.add("time.sleep(5)");
+    PythonInterpreterRequest<Void> busyCommandRequest = buildRequestObjectForVoidGenericCommand(busyCommands,
+        2,TimeUnit.MILLISECONDS);
+
     for ( int i = 0; i < jepPythonEngine.getNumWorkerThreads() - 1; i++) {
       InterpreterWrapper aWrapper = jepPythonEngine.getWorkers().get(i);
-      aWrapper.runCommands(1L,i,busyCommands,2, TimeUnit.MILLISECONDS);
+      aWrapper.runCommands(1L,i,busyCommandRequest);
       assertTrue(aWrapper.isCurrentlyBusy());
       overloadedWorkers.add(aWrapper.getInterpreterId());
     }
@@ -63,7 +67,7 @@ public class JepPythonEngineTest extends BaseJEPTest
     // we now test for all workers being busy
     for ( int i = 0; i < jepPythonEngine.getNumWorkerThreads(); i++) {
       InterpreterWrapper aWrapper = jepPythonEngine.getWorkers().get(i);
-      aWrapper.runCommands(1L,i,busyCommands,2, TimeUnit.MILLISECONDS);
+      aWrapper.runCommands(1L,i,busyCommandRequest);
     }
     for (int i = 0; i < jepPythonEngine.getNumWorkerThreads(); i++) {
       candidateWrapperForExecution = jepPythonEngine.selectWorkerForCurrentCall(i);
@@ -80,15 +84,20 @@ public class JepPythonEngineTest extends BaseJEPTest
     List<String> commands = new ArrayList();
     commands.add("def " + methodName + "(firstnum, secondnum):\n" +
         "\treturn (firstnum * secondnum)\n"); // Note that this cannot be split as multiple commands
+
+    PythonInterpreterRequest<Void> requestForDef = buildRequestObjectForVoidGenericCommand(commands,1000,
+        TimeUnit.MILLISECONDS);
+
     for (int i = 0; i < jepPythonEngine.getNumWorkerThreads(); i++) {
       InterpreterWrapper aWrapper = jepPythonEngine.getWorkers().get(i);
-      aWrapper.runCommands(1L,1L,commands,1000,TimeUnit.MILLISECONDS);
+      aWrapper.runCommands(1L,1L,requestForDef);
     }
+
     HashMap<String,Object> params = new HashMap<>();
     params.put("y",3);
     Map<String,PythonRequestResponse<Long>> response = jepPythonEngine.eval(WorkerExecutionMode.ALL_WORKERS,
-        1L,1L,"x=multiply(4,y)",
-        "x", params,1000,TimeUnit.MILLISECONDS,false,Long.class);
+        1L,1L,buildRequestObjectForLongEvalCommand("x=multiply(4,y)",
+        "x", params,1000,TimeUnit.MILLISECONDS,false));
     for (String aWorkerId: response.keySet()) {
       assertEquals(12L,response.get(aWorkerId).getPythonInterpreterResponse().getResponse());
     }
@@ -97,8 +106,8 @@ public class JepPythonEngineTest extends BaseJEPTest
     params = new HashMap<>();
     params.put("y",6);
     response = jepPythonEngine.eval(WorkerExecutionMode.ANY_WORKER,
-      1L,1L,"x=multiply(4,y)",
-      "x", params,1000,TimeUnit.MILLISECONDS,false,Long.class);
+      1L,1L,buildRequestObjectForLongEvalCommand("x=multiply(4,y)",
+      "x", params,1000,TimeUnit.MILLISECONDS,false));
     for (String aWorkerId: response.keySet()) {
       assertEquals(24L,response.get(aWorkerId).getPythonInterpreterResponse().getResponse());
     }
@@ -110,7 +119,7 @@ public class JepPythonEngineTest extends BaseJEPTest
   @Test
   public void testPostStartInterpreterLogic() throws Exception
   {
-    JepPythonEngine pythonEngineForPostInit = new JepPythonEngine("unit-tests-jeppythonengine",
+    JepPythonEngine pythonEngineForPostInit = new JepPythonEngine("unit-tests-jeppythonengine-preint",
         5);
     List<String> commandsForPreInit = new ArrayList<>();
     commandsForPreInit.add("x=5");
@@ -118,27 +127,27 @@ public class JepPythonEngineTest extends BaseJEPTest
         PythonCommandType.GENERIC_COMMANDS);
     aHistoryCommand.getPythonInterpreterRequest()
         .getGenericCommandsRequestPayload().setGenericCommands(commandsForPreInit);
-    aHistoryCommand.getPythonInterpreterRequest().setTimeOutInNanos(
-        TimeUnit.NANOSECONDS.convert(1,TimeUnit.SECONDS));
+    aHistoryCommand.getPythonInterpreterRequest().setTimeout(10);
+    aHistoryCommand.getPythonInterpreterRequest().setTimeUnit(TimeUnit.MILLISECONDS);
     List<PythonRequestResponse> historyOfCommands = new ArrayList<>();
     historyOfCommands.add(aHistoryCommand);
     pythonEngineForPostInit.setCommandHistory(historyOfCommands);
 
     pythonEngineForPostInit.preInitInterpreter(new HashMap<String,Object>());
     pythonEngineForPostInit.startInterpreter();
+
     pythonEngineForPostInit.postStartInterpreter();
 
     HashMap<String,Object> params = new HashMap<>();
     params.put("y",4);
     Map<String,PythonRequestResponse<Long>> resultOfExecution = pythonEngineForPostInit.eval(
-        WorkerExecutionMode.ALL_WORKERS, 1L,1L,"x=x+y","x",params,
-        100,TimeUnit.MILLISECONDS,false,Long.class);
+        WorkerExecutionMode.ALL_WORKERS, 1L,1L, buildRequestObjectForLongEvalCommand(
+        "x=x+y","x",params,100,TimeUnit.MILLISECONDS,false));
     assertEquals(pythonEngineForPostInit.getNumWorkerThreads(),resultOfExecution.size());
     for (String aWorkerId : resultOfExecution.keySet()) {
       assertEquals(9L, resultOfExecution.get(aWorkerId).getPythonInterpreterResponse().getResponse());
     }
   }
-
 }
 
 

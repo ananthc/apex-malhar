@@ -9,6 +9,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import org.apache.apex.malhar.python.test.JepPythonTestContext;
 
@@ -28,12 +29,15 @@ public class InterpreterWrapperTest extends BaseJEPTest
     List<String> sequenceOfCommands = new ArrayList();
     sequenceOfCommands.add("import time");
     sequenceOfCommands.add("time.sleep(1)");
-    PythonRequestResponse<Void> resultOne = interpreterWrapper.runCommands(1L,1L,
-        sequenceOfCommands,3, TimeUnit.SECONDS);
+
+    PythonInterpreterRequest<Void> requestOne = buildRequestObjectForVoidGenericCommand(
+        sequenceOfCommands,3,TimeUnit.SECONDS);
+    PythonRequestResponse<Void> resultOne = interpreterWrapper.runCommands(1L,1L, requestOne);
     assertNotNull(resultOne);
 
-    PythonRequestResponse<Void> resultTWo = interpreterWrapper.runCommands(1L,1L,
-        sequenceOfCommands,5, TimeUnit.MILLISECONDS);
+    requestOne.setTimeUnit(TimeUnit.MILLISECONDS);
+    requestOne.setTimeout(5);
+    PythonRequestResponse<Void> resultTWo = interpreterWrapper.runCommands(1L,1L,requestOne);
     assertNull(resultTWo);
 
   }
@@ -45,19 +49,28 @@ public class InterpreterWrapperTest extends BaseJEPTest
     List<String> sequenceOfCommands = new ArrayList();
     sequenceOfCommands.add("import time");
     sequenceOfCommands.add("x=4;time.sleep(1)");
-    PythonRequestResponse<Void> resultOne = interpreterWrapper.runCommands(1L,1L,
-        sequenceOfCommands,300, TimeUnit.MILLISECONDS);
+
+    PythonInterpreterRequest<Void> requestOne = buildRequestObjectForVoidGenericCommand(
+        sequenceOfCommands,300,TimeUnit.MILLISECONDS);
+    PythonRequestResponse<Void> resultOne = interpreterWrapper.runCommands(1L,1L,requestOne);
+
     HashMap<String,Object> evalParams  = new HashMap<>();
     evalParams.put("y", 2);
-    PythonRequestResponse<Long> result = interpreterWrapper.eval(1L,1L,
-        "x = x * y;time.sleep(1)","x",
-        evalParams,10, TimeUnit.MILLISECONDS,false,Long.class);
+
+    PythonInterpreterRequest<Long> requestTwo = buildRequestObjectForLongEvalCommand(
+        "x = x * y;time.sleep(1)","x",evalParams,10,TimeUnit.MILLISECONDS,false);
+    PythonRequestResponse<Long> result = interpreterWrapper.eval(1L,1L,requestTwo);
+
     Thread.sleep(3000);
+
     // only the next command will result in the queue getting drained of previous requests hence below
     sequenceOfCommands = new ArrayList();
     sequenceOfCommands.add("x=5");
-    resultOne = interpreterWrapper.runCommands(1L,1L,
-      sequenceOfCommands,300, TimeUnit.MILLISECONDS);
+
+    PythonInterpreterRequest<Void> requestThree = buildRequestObjectForVoidGenericCommand(
+        sequenceOfCommands,300,TimeUnit.MILLISECONDS);
+    PythonRequestResponse<Void> resultThree = interpreterWrapper.runCommands(1L,1L,requestThree);
+
     assertFalse(delayedResponseQueueForWrapper.isEmpty());
     assertEquals(2, delayedResponseQueueForWrapper.drainTo(new ArrayList<>()));
 

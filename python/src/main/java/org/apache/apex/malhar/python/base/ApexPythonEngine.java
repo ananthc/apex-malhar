@@ -1,9 +1,8 @@
 package org.apache.apex.malhar.python.base;
 
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
+import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 
 /**
@@ -18,21 +17,17 @@ public interface ApexPythonEngine
 
   void postStartInterpreter() throws ApexPythonInterpreterException;
 
-  Map<String,PythonRequestResponse> runCommands(WorkerExecutionMode executionMode, long windowId, long requestId,
-      List<String> commands, long timeout, TimeUnit timeUnit) throws ApexPythonInterpreterException;
+  Map<String,PythonRequestResponse<Void>> runCommands(WorkerExecutionMode executionMode, long windowId, long requestId,
+      PythonInterpreterRequest<Void> request) throws ApexPythonInterpreterException;
 
   <T> Map<String,PythonRequestResponse<T>> executeMethodCall(WorkerExecutionMode executionMode,long windowId,
-      long requestId, String nameOfGlobalMethod, List<Object> argsToGlobalMethod, long timeout, TimeUnit timeUnit,
-      Class<T> expectedReturnType) throws ApexPythonInterpreterException;
+      long requestId, PythonInterpreterRequest<T> req) throws ApexPythonInterpreterException;
 
-  Map<String,PythonRequestResponse>  executeScript(WorkerExecutionMode executionMode,long windowId, long requestId,
-      String scriptName, long timeout, TimeUnit timeUnit)
-    throws ApexPythonInterpreterException;
+  Map<String,PythonRequestResponse<Void>>  executeScript(WorkerExecutionMode executionMode,long windowId,long requestId,
+      PythonInterpreterRequest<Void> request) throws ApexPythonInterpreterException;
 
   <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode, long windowId, long requestId,
-      String command, String variableNameToFetch, Map<String,Object> globalMethodsParams,long timeout,TimeUnit timeUnit,
-      boolean deleteExtractedVariable, Class<T> expectedReturnType)
-    throws ApexPythonInterpreterException;
+      PythonInterpreterRequest<T> req)  throws ApexPythonInterpreterException;
 
   void stopInterpreter() throws ApexPythonInterpreterException;
 

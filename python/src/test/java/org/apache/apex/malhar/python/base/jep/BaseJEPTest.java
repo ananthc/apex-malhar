@@ -2,6 +2,7 @@ package org.apache.apex.malhar.python.base.jep;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -106,10 +107,10 @@ public class BaseJEPTest extends BasePythonTest
   }
 
   public PythonRequestResponse<Void> buildRequestResponseObjectForVoidPayload(PythonCommandType commandType)
-      throws Exception
+    throws Exception
   {
     PythonRequestResponse<Void> requestResponse = new PythonRequestResponse();
-    PythonInterpreterRequest<Void> request = new PythonInterpreterRequest<>();
+    PythonInterpreterRequest<Void> request = new PythonInterpreterRequest<>(Void.class);
     PythonInterpreterResponse<Void> response = new PythonInterpreterResponse<>(Void.class);
     requestResponse.setPythonInterpreterRequest(request);
     requestResponse.setPythonInterpreterResponse(response);
@@ -121,7 +122,7 @@ public class BaseJEPTest extends BasePythonTest
       PythonCommandType commandType) throws Exception
   {
     PythonRequestResponse<Long> requestResponse = new PythonRequestResponse();
-    PythonInterpreterRequest<Long> request = new PythonInterpreterRequest<>();
+    PythonInterpreterRequest<Long> request = new PythonInterpreterRequest<>(Long.class);
     requestResponse.setPythonInterpreterRequest(request);
     PythonInterpreterResponse<Long> response = new PythonInterpreterResponse<>(Long.class);
     requestResponse.setPythonInterpreterRequest(request);
@@ -136,7 +137,7 @@ public class BaseJEPTest extends BasePythonTest
       PythonCommandType commandType) throws Exception
   {
     PythonRequestResponse<Integer> requestResponse = new PythonRequestResponse();
-    PythonInterpreterRequest<Integer> request = new PythonInterpreterRequest<>();
+    PythonInterpreterRequest<Integer> request = new PythonInterpreterRequest<>(Integer.class);
     requestResponse.setPythonInterpreterRequest(request);
     PythonInterpreterResponse<Integer> response = new PythonInterpreterResponse<>(Integer.class);
     requestResponse.setPythonInterpreterRequest(request);
@@ -155,5 +156,36 @@ public class BaseJEPTest extends BasePythonTest
     Thread.sleep(1000); // wait for command to be processed
     return pythonEngineThread.getResponseQueue().poll(1, TimeUnit.SECONDS);
   }
+
+
+  protected PythonInterpreterRequest<Long> buildRequestObjectForLongEvalCommand(String command, String returnVar,
+      Map<String,Object> paramsForEval, long timeOut, TimeUnit timeUnit, boolean deleteVariable)
+  {
+    PythonInterpreterRequest<Long> request = new PythonInterpreterRequest<>(Long.class);
+    request.setTimeout(timeOut);
+    request.setTimeUnit(timeUnit);
+    EvalCommandRequestPayload evalCommandRequestPayload = new EvalCommandRequestPayload();
+    request.setEvalCommandRequestPayload(evalCommandRequestPayload);
+    evalCommandRequestPayload.setParamsForEvalCommand(paramsForEval);
+    evalCommandRequestPayload.setDeleteVariableAfterEvalCall(deleteVariable);
+    evalCommandRequestPayload.setVariableNameToExtractInEvalCall(returnVar);
+    evalCommandRequestPayload.setEvalCommand(command);
+    request.setExpectedReturnType(Long.class);
+    return request;
+  }
+
+  protected PythonInterpreterRequest<Void> buildRequestObjectForVoidGenericCommand(List<String> commands, long timeOut,
+      TimeUnit timeUnit)
+  {
+    PythonInterpreterRequest<Void> genericCommandRequest = new PythonInterpreterRequest<>(Void.class);
+    genericCommandRequest.setTimeout(timeOut);
+    genericCommandRequest.setTimeUnit(timeUnit);
+    GenericCommandsRequestPayload genericCommandsRequestPayload = new GenericCommandsRequestPayload();
+    genericCommandsRequestPayload.setGenericCommands(commands);
+    genericCommandRequest.setExpectedReturnType(Void.class);
+    genericCommandRequest.setGenericCommandsRequestPayload(genericCommandsRequestPayload);
+    return genericCommandRequest;
+  }
+
 
 }
