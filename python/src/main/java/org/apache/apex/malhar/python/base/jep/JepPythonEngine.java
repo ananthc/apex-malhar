@@ -102,7 +102,7 @@ public class JepPythonEngine implements ApexPythonEngine
     initWorkers();
     try {
       LOG.debug("Sleeping to let the interpreter boot up in memory");
-      Thread.sleep(2000);
+      Thread.sleep(sleepTimeAfterInterpreterStart);
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
