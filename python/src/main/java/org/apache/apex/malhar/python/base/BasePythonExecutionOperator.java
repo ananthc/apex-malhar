@@ -14,20 +14,20 @@ import com.datatorrent.api.Operator;
 import com.datatorrent.api.Partitioner;
 import com.datatorrent.api.StatsListener;
 import com.datatorrent.api.annotation.InputPortFieldAnnotation;
-import com.datatorrent.api.annotation.Stateless;
 import com.datatorrent.common.util.BaseOperator;
 
-@Stateless
 public abstract class BasePythonExecutionOperator<T> extends BaseOperator implements
     Operator.ActivationListener<Context.OperatorContext>, Partitioner<BasePythonExecutionOperator>, StatsListener
 {
-  private static final Logger LOG = LoggerFactory.getLogger(BasePythonExecutionOperator.class);
+  private static final transient Logger LOG = LoggerFactory.getLogger(BasePythonExecutionOperator.class);
 
   private transient long requestIdForThisWindow = 0;
 
   private transient ApexPythonEngine apexPythonEngine;
 
   private int workerThreadPoolSize = 3;
+
+  private long sleepTimeDuringInterpreterBoot = 2000L;
 
   @InputPortFieldAnnotation
   public final transient DefaultInputPort<T> input = new DefaultInputPort<T>()
@@ -57,7 +57,9 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   protected ApexPythonEngine initApexPythonEngineImpl(Context.OperatorContext context)
   {
-    return new JepPythonEngine("" + context.getId(),workerThreadPoolSize);
+    JepPythonEngine jepPythonEngine = new JepPythonEngine("" + context.getId(),workerThreadPoolSize);
+    jepPythonEngine.setSleepTimeAfterInterpreterStart(sleepTimeDuringInterpreterBoot);
+    return jepPythonEngine;
   }
 
   @Override
@@ -131,4 +133,23 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   public abstract Map<String,Object> getPreInitConfigurations();
 
+  public long getSleepTimeDuringInterpreterBoot()
+  {
+    return sleepTimeDuringInterpreterBoot;
+  }
+
+  public void setSleepTimeDuringInterpreterBoot(long sleepTimeDuringInterpreterBoot)
+  {
+    this.sleepTimeDuringInterpreterBoot = sleepTimeDuringInterpreterBoot;
+  }
+
+  public int getWorkerThreadPoolSize()
+  {
+    return workerThreadPoolSize;
+  }
+
+  public void setWorkerThreadPoolSize(int workerThreadPoolSize)
+  {
+    this.workerThreadPoolSize = workerThreadPoolSize;
+  }
 }

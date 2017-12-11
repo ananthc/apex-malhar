@@ -44,6 +44,8 @@ public class JepPythonEngine implements ApexPythonEngine
 
   private List<InterpreterWrapper> workers = new ArrayList<>();
 
+  private Map<String, Object> preInitConfigs;
+
   public JepPythonEngine(String threadGroupName,int numWorkerThreads)
   {
     this.numWorkerThreads = numWorkerThreads;
@@ -55,6 +57,7 @@ public class JepPythonEngine implements ApexPythonEngine
     System.loadLibrary(JEP_LIBRARY_NAME);
     for ( int i = 0; i < numWorkerThreads; i++) {
       InterpreterWrapper aWorker = new InterpreterWrapper(threadGroupName + "-" + i,delayedResponseQueue);
+      aWorker.preInitInterpreter(preInitConfigs);
       aWorker.startInterpreter();
       workers.add(aWorker);
     }
@@ -91,9 +94,7 @@ public class JepPythonEngine implements ApexPythonEngine
   @Override
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
   {
-    for ( InterpreterWrapper wrapper : workers) {
-      wrapper.preInitInterpreter(preInitConfigs);
-    }
+    this.preInitConfigs = preInitConfigs;
   }
 
   @Override
