@@ -29,6 +29,10 @@ public interface ApexPythonEngine
   <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode, long windowId, long requestId,
       PythonInterpreterRequest<T> req)  throws ApexPythonInterpreterException;
 
+  long getNumStarvedReturns();
+
+  void setNumStarvedReturns(long numStarvedReturns);
+
   void stopInterpreter() throws ApexPythonInterpreterException;
 
 }

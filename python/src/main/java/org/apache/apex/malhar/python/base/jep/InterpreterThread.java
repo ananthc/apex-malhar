@@ -43,7 +43,7 @@ public class InterpreterThread implements Runnable
 
   private transient volatile boolean busyFlag = false;
 
-  private long timeOutToPollFromRequestQueue = 5;
+  private long timeOutToPollFromRequestQueue = 1;
 
   private TimeUnit timeUnitsToPollFromRequestQueue = TimeUnit.MILLISECONDS;
 

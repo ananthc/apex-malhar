@@ -7,6 +7,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.jep.JepPythonEngine;
+import org.apache.apex.malhar.python.base.partitioner.AbstractPythonExecutionPartitioner;
+import org.apache.apex.malhar.python.base.partitioner.PythonExecutionPartitionerType;
+import org.apache.apex.malhar.python.base.partitioner.ThreadStarvationBasedPartitioner;
 
 import com.datatorrent.api.Context;
 import com.datatorrent.api.DefaultInputPort;
@@ -29,6 +32,10 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   private long sleepTimeDuringInterpreterBoot = 2000L;
 
+  private PythonExecutionPartitionerType partitionerType = PythonExecutionPartitionerType.THREAD_STARVATION_BASED;
+
+  private AbstractPythonExecutionPartitioner partitioner;
+
   @InputPortFieldAnnotation
   public final transient DefaultInputPort<T> input = new DefaultInputPort<T>()
   {
@@ -46,7 +53,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   @Override
   public void activate(Context.OperatorContext context)
   {
-
+    getApexPythonEngine().setNumStarvedReturns(0L);
   }
 
   @Override
@@ -62,6 +69,16 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     return jepPythonEngine;
   }
 
+  private void setPartitioner()
+  {
+    switch (partitionerType) {
+      default:
+      case THREAD_STARVATION_BASED:
+        partitioner = new ThreadStarvationBasedPartitioner();
+        break;
+    }
+  }
+
   @Override
   public void setup(Context.OperatorContext context)
   {
@@ -74,6 +91,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     } catch (ApexPythonInterpreterException e) {
       throw new RuntimeException(e);
     }
+    setPartitioner();
   }
 
   @Override
@@ -92,6 +110,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   {
     super.beginWindow(windowId);
     requestIdForThisWindow = 0;
+    getApexPythonEngine().setNumStarvedReturns(0L);
   }
 
   @Override
@@ -104,13 +123,13 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   public Collection<Partition<BasePythonExecutionOperator>> definePartitions(
       Collection<Partition<BasePythonExecutionOperator>> partitions, PartitioningContext context)
   {
-    return null;
+    return partitioner.definePartitions(partitions,context);
   }
 
   @Override
   public void partitioned(Map<Integer, Partition<BasePythonExecutionOperator>> partitions)
   {
-
+    partitioner.partitioned(partitions);
   }
 
   @Override
@@ -151,5 +170,15 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   public void setWorkerThreadPoolSize(int workerThreadPoolSize)
   {
     this.workerThreadPoolSize = workerThreadPoolSize;
+  }
+
+  public PythonExecutionPartitionerType getPartitionerType()
+  {
+    return partitionerType;
+  }
+
+  public void setPartitionerType(PythonExecutionPartitionerType partitionerType)
+  {
+    this.partitionerType = partitionerType;
   }
 }

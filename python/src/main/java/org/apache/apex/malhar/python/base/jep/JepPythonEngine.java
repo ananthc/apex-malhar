@@ -46,6 +46,8 @@ public class JepPythonEngine implements ApexPythonEngine
 
   private Map<String, Object> preInitConfigs;
 
+  private long numStarvedReturns = 0;
+
   public JepPythonEngine(String threadGroupName,int numWorkerThreads)
   {
     this.numWorkerThreads = numWorkerThreads;
@@ -87,6 +89,7 @@ public class JepPythonEngine implements ApexPythonEngine
     if (isWorkerFound) {
       return aWorker;
     } else {
+      numStarvedReturns += 1;
       return null;
     }
   }
@@ -337,5 +340,17 @@ public class JepPythonEngine implements ApexPythonEngine
   public void setBufferCapacity(int bufferCapacity)
   {
     this.bufferCapacity = bufferCapacity;
+  }
+
+  @Override
+  public long getNumStarvedReturns()
+  {
+    return numStarvedReturns;
+  }
+
+  @Override
+  public void setNumStarvedReturns(long numStarvedReturns)
+  {
+    this.numStarvedReturns = numStarvedReturns;
   }
 }
