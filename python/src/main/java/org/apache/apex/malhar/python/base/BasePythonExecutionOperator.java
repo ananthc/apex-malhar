@@ -28,17 +28,21 @@ import org.apache.apex.malhar.python.base.jep.JepPythonEngine;
 import org.apache.apex.malhar.python.base.partitioner.AbstractPythonExecutionPartitioner;
 import org.apache.apex.malhar.python.base.partitioner.PythonExecutionPartitionerType;
 import org.apache.apex.malhar.python.base.partitioner.ThreadStarvationBasedPartitioner;
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 
 import com.datatorrent.api.Context;
 import com.datatorrent.api.DefaultInputPort;
+import com.datatorrent.api.DefaultOutputPort;
 import com.datatorrent.api.Operator;
 import com.datatorrent.api.Partitioner;
 import com.datatorrent.api.StatsListener;
 import com.datatorrent.api.annotation.InputPortFieldAnnotation;
 import com.datatorrent.common.util.BaseOperator;
+import com.datatorrent.common.util.Pair;
 
 public abstract class BasePythonExecutionOperator<T> extends BaseOperator implements
-    Operator.ActivationListener<Context.OperatorContext>, Partitioner<BasePythonExecutionOperator>, StatsListener
+    Operator.ActivationListener<Context.OperatorContext>, Partitioner<BasePythonExecutionOperator>,
+    Operator.CheckpointNotificationListener, StatsListener
 {
   private static final transient Logger LOG = LoggerFactory.getLogger(BasePythonExecutionOperator.class);
 
@@ -53,6 +57,11 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   private PythonExecutionPartitionerType partitionerType = PythonExecutionPartitionerType.THREAD_STARVATION_BASED;
 
   private AbstractPythonExecutionPartitioner partitioner;
+
+  private final transient DefaultOutputPort<Pair<T,PythonRequestResponse>> stragglersPort =
+      new com.datatorrent.api.DefaultOutputPort<>();
+
+  private final transient DefaultOutputPort<T> errorPort = new com.datatorrent.api.DefaultOutputPort<>();
 
   @InputPortFieldAnnotation
   public final transient DefaultInputPort<T> input = new DefaultInputPort<T>()
@@ -110,6 +119,11 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
       throw new RuntimeException(e);
     }
     setPartitioner();
+    try {
+      processPostSetUpPythonInstructions();
+    } catch (ApexPythonInterpreterException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Override
@@ -128,7 +142,6 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   {
     super.beginWindow(windowId);
     requestIdForThisWindow = 0;
-    getApexPythonEngine().setNumStarvedReturns(0L);
   }
 
   @Override
@@ -148,6 +161,27 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   public void partitioned(Map<Integer, Partition<BasePythonExecutionOperator>> partitions)
   {
     partitioner.partitioned(partitions);
+  }
+
+  @Override
+  public void beforeCheckpoint(long windowId)
+  {
+
+  }
+
+  @Override
+  public void checkpointed(long windowId)
+  {
+    getApexPythonEngine().setNumStarvedReturns(0L);
+  }
+
+  @Override
+  public void committed(long windowId)
+  {
+  }
+
+  public void processPostSetUpPythonInstructions() throws ApexPythonInterpreterException
+  {
   }
 
   @Override
