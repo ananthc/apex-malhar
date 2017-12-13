@@ -20,6 +20,7 @@ package org.apache.apex.malhar.python.base;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
 
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
@@ -47,6 +48,10 @@ public interface ApexPythonEngine
 
   <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode, long windowId, long requestId,
       PythonInterpreterRequest<T> req)  throws ApexPythonInterpreterException;
+
+  BlockingQueue<PythonRequestResponse> getDelayedResponseQueue();
+
+  void setDelayedResponseQueue(BlockingQueue<PythonRequestResponse> delayedResponseQueue);
 
   long getNumStarvedReturns();
 

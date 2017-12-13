@@ -18,7 +18,9 @@
  */
 package org.apache.apex.malhar.python.base;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -38,7 +40,6 @@ import com.datatorrent.api.Partitioner;
 import com.datatorrent.api.StatsListener;
 import com.datatorrent.api.annotation.InputPortFieldAnnotation;
 import com.datatorrent.common.util.BaseOperator;
-import com.datatorrent.common.util.Pair;
 
 public abstract class BasePythonExecutionOperator<T> extends BaseOperator implements
     Operator.ActivationListener<Context.OperatorContext>, Partitioner<BasePythonExecutionOperator>,
@@ -62,7 +63,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   private AbstractPythonExecutionPartitioner partitioner;
 
-  private final transient DefaultOutputPort<Pair<T,PythonRequestResponse>> stragglersPort =
+  private final transient DefaultOutputPort<PythonRequestResponse> stragglersPort =
       new com.datatorrent.api.DefaultOutputPort<>();
 
   private final transient DefaultOutputPort<T> errorPort = new com.datatorrent.api.DefaultOutputPort<>();
@@ -74,9 +75,15 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     public void process(T tuple)
     {
       numberOfRequestsProcessedPerCheckpoint += 1;
+      List<PythonRequestResponse> stragglerResponse = new ArrayList<>();
+      getApexPythonEngine().getDelayedResponseQueue().drainTo(stragglerResponse);
+      for (PythonRequestResponse aReqResponse : stragglerResponse) {
+        stragglersPort.emit(aReqResponse);
+      }
       try {
         processPython(tuple,getApexPythonEngine());
       } catch (ApexPythonInterpreterException e) {
+        errorPort.emit(tuple);
         throw new RuntimeException(e);
       }
     }
@@ -192,7 +199,18 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   @Override
   public Response processStats(BatchedOperatorStats stats)
   {
-    return null;
+    Response response = new Response();
+    if ( apexPythonEngine == null) {
+      response.repartitionRequired = true;
+    } else {
+      long starvedCount = apexPythonEngine.getNumStarvedReturns();
+      long requestsForCheckpointWindow = getNumberOfRequestsProcessedPerCheckpoint();
+      float starvationPercent = ((requestsForCheckpointWindow - starvedCount) / requestsForCheckpointWindow) * 100;
+      if (starvationPercent > getStarvationPercentBeforeSpawningNewInstance()) {
+        response.repartitionRequired = true;
+      }
+    }
+    return response;
   }
 
   public ApexPythonEngine getApexPythonEngine()
