@@ -18,6 +18,7 @@
  */
 package org.apache.apex.malhar.python.base;
 
+import java.util.List;
 import java.util.Map;
 
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
@@ -50,6 +51,10 @@ public interface ApexPythonEngine
   long getNumStarvedReturns();
 
   void setNumStarvedReturns(long numStarvedReturns);
+
+  List<PythonRequestResponse> getCommandHistory();
+
+  void setCommandHistory(List<PythonRequestResponse> commandHistory);
 
   void stopInterpreter() throws ApexPythonInterpreterException;
 

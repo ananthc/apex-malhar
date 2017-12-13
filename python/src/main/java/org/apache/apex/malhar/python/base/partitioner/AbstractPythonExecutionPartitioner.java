@@ -19,24 +19,53 @@
 package org.apache.apex.malhar.python.base.partitioner;
 
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+
+import org.codehaus.jackson.annotate.JsonIgnore;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.BasePythonExecutionOperator;
 
+import com.datatorrent.api.DefaultPartition;
 import com.datatorrent.api.Partitioner;
+import com.datatorrent.lib.util.KryoCloneUtils;
 
 public abstract class AbstractPythonExecutionPartitioner implements Partitioner<BasePythonExecutionOperator>
 {
+  private static final Logger LOG = LoggerFactory.getLogger(AbstractPythonExecutionPartitioner.class);
+
+  @JsonIgnore
+  protected BasePythonExecutionOperator prototypePythonOperator;
+
+  public AbstractPythonExecutionPartitioner(BasePythonExecutionOperator prototypePythonOperator)
+  {
+    this.prototypePythonOperator = prototypePythonOperator;
+  }
+
   @Override
   public Collection<Partition<BasePythonExecutionOperator>> definePartitions(
       Collection<Partition<BasePythonExecutionOperator>> partitions, PartitioningContext context)
   {
-    return null;
+    List<Partition<BasePythonExecutionOperator>> requiredPartitions = calculateNumPartitions(partitions, context);
+    return requiredPartitions;
   }
+
+  protected abstract List<Partition<BasePythonExecutionOperator>> calculateNumPartitions(
+      Collection<Partition<BasePythonExecutionOperator>> partitions, PartitioningContext context);
 
   @Override
   public void partitioned(Map<Integer, Partition<BasePythonExecutionOperator>> partitions)
   {
 
   }
+
+  public Partitioner.Partition<BasePythonExecutionOperator> clonePartitionAndAssignScanMeta()
+  {
+    Partitioner.Partition<BasePythonExecutionOperator> clonedKuduInputOperator =
+        new DefaultPartition<>(KryoCloneUtils.cloneObject(prototypePythonOperator));
+    return clonedKuduInputOperator;
+  }
 }
+

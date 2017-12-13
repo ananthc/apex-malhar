@@ -18,6 +18,59 @@
  */
 package org.apache.apex.malhar.python.base.partitioner;
 
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.apex.malhar.python.base.ApexPythonEngine;
+import org.apache.apex.malhar.python.base.BasePythonExecutionOperator;
+
+
 public class ThreadStarvationBasedPartitioner extends AbstractPythonExecutionPartitioner
 {
+  private static final Logger LOG = LoggerFactory.getLogger(ThreadStarvationBasedPartitioner.class);
+
+  private float threadStarvationThresholdRatio;
+
+  public ThreadStarvationBasedPartitioner(BasePythonExecutionOperator prototypePythonOperator)
+  {
+    super(prototypePythonOperator);
+  }
+
+  @Override
+  protected List<Partition<BasePythonExecutionOperator>> calculateNumPartitions(
+      Collection<Partition<BasePythonExecutionOperator>> partitions, PartitioningContext context)
+  {
+    List<Partition<BasePythonExecutionOperator>> returnList = new ArrayList<>();
+    if (partitions != null) {
+      for (Partition<BasePythonExecutionOperator> aCurrentPartition : partitions) {
+        BasePythonExecutionOperator anOperator = aCurrentPartition.getPartitionedInstance();
+        ApexPythonEngine anEngine = anOperator.getApexPythonEngine();
+        if (anEngine != null) {
+          long starvedCount = anEngine.getNumStarvedReturns();
+          long requestsForCheckpointWindow = anOperator.getNumberOfRequestsProcessedPerCheckpoint();
+          float starvationPercent = ((requestsForCheckpointWindow - starvedCount ) / requestsForCheckpointWindow) * 100;
+          if (starvationPercent > anOperator.getStarvationPercentBeforeSpawningNewInstance()) {
+            Partition<BasePythonExecutionOperator> newInstance = clonePartitionAndAssignScanMeta();
+            newInstance.getPartitionedInstance().getApexPythonEngine().setCommandHistory(anEngine.getCommandHistory());
+            returnList.add(newInstance);
+          }
+        }
+      }
+    }
+    return returnList;
+  }
+
+  public float getThreadStarvationThresholdRatio()
+  {
+    return threadStarvationThresholdRatio;
+  }
+
+  public void setThreadStarvationThresholdRatio(float threadStarvationThresholdRatio)
+  {
+    this.threadStarvationThresholdRatio = threadStarvationThresholdRatio;
+  }
 }

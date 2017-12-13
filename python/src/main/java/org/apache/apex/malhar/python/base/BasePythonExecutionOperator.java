@@ -48,6 +48,10 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   private transient long requestIdForThisWindow = 0;
 
+  private long numberOfRequestsProcessedPerCheckpoint = 0;
+
+  private float starvationPercentBeforeSpawningNewInstance = 30;
+
   private transient ApexPythonEngine apexPythonEngine;
 
   private int workerThreadPoolSize = 3;
@@ -69,6 +73,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     @Override
     public void process(T tuple)
     {
+      numberOfRequestsProcessedPerCheckpoint += 1;
       try {
         processPython(tuple,getApexPythonEngine());
       } catch (ApexPythonInterpreterException e) {
@@ -101,7 +106,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     switch (partitionerType) {
       default:
       case THREAD_STARVATION_BASED:
-        partitioner = new ThreadStarvationBasedPartitioner();
+        partitioner = new ThreadStarvationBasedPartitioner(this);
         break;
     }
   }
@@ -200,7 +205,8 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     this.apexPythonEngine = apexPythonEngine;
   }
 
-  public abstract void processPython(T input, ApexPythonEngine pythonEngineRef) throws ApexPythonInterpreterException;
+  public abstract boolean processPython(T input, ApexPythonEngine pythonEngineRef)
+      throws ApexPythonInterpreterException;
 
   public abstract Map<String,Object> getPreInitConfigurations();
 
@@ -232,5 +238,35 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   public void setPartitionerType(PythonExecutionPartitionerType partitionerType)
   {
     this.partitionerType = partitionerType;
+  }
+
+  public long getNumberOfRequestsProcessedPerCheckpoint()
+  {
+    return numberOfRequestsProcessedPerCheckpoint;
+  }
+
+  public void setNumberOfRequestsProcessedPerCheckpoint(long numberOfRequestsProcessedPerCheckpoint)
+  {
+    this.numberOfRequestsProcessedPerCheckpoint = numberOfRequestsProcessedPerCheckpoint;
+  }
+
+  public AbstractPythonExecutionPartitioner getPartitioner()
+  {
+    return partitioner;
+  }
+
+  public void setPartitioner(AbstractPythonExecutionPartitioner partitioner)
+  {
+    this.partitioner = partitioner;
+  }
+
+  public float getStarvationPercentBeforeSpawningNewInstance()
+  {
+    return starvationPercentBeforeSpawningNewInstance;
+  }
+
+  public void setStarvationPercentBeforeSpawningNewInstance(float starvationPercentBeforeSpawningNewInstance)
+  {
+    this.starvationPercentBeforeSpawningNewInstance = starvationPercentBeforeSpawningNewInstance;
   }
 }

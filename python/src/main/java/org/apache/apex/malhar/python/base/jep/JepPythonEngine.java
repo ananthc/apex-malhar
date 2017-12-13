@@ -310,11 +310,13 @@ public class JepPythonEngine implements ApexPythonEngine
     this.workers = workers;
   }
 
+  @Override
   public List<PythonRequestResponse> getCommandHistory()
   {
     return commandHistory;
   }
 
+  @Override
   public void setCommandHistory(List<PythonRequestResponse> commandHistory)
   {
     this.commandHistory = commandHistory;
