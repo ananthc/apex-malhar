@@ -84,7 +84,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
         processPython(tuple,getApexPythonEngine());
       } catch (ApexPythonInterpreterException e) {
         errorPort.emit(tuple);
-        throw new RuntimeException(e);
+        LOG.error("Error while processing tuple", e);
       }
     }
   };
