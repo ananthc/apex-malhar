@@ -20,6 +20,7 @@ package org.apache.apex.malhar.python.base;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -47,7 +48,9 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 {
   private static final transient Logger LOG = LoggerFactory.getLogger(BasePythonExecutionOperator.class);
 
-  private transient long requestIdForThisWindow = 0;
+  protected transient long requestIdForThisWindow = 0;
+
+  protected transient long currentWindowId = 0;
 
   private long numberOfRequestsProcessedPerCheckpoint = 0;
 
@@ -63,10 +66,13 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   private AbstractPythonExecutionPartitioner partitioner;
 
-  private final transient DefaultOutputPort<PythonRequestResponse> stragglersPort =
+  public final transient DefaultOutputPort<PythonRequestResponse> stragglersPort =
       new com.datatorrent.api.DefaultOutputPort<>();
 
-  private final transient DefaultOutputPort<T> errorPort = new com.datatorrent.api.DefaultOutputPort<>();
+  public final transient DefaultOutputPort<PythonRequestResponse> outputPort =
+      new com.datatorrent.api.DefaultOutputPort<>();
+
+  public final transient DefaultOutputPort<T> errorPort = new com.datatorrent.api.DefaultOutputPort<>();
 
   @InputPortFieldAnnotation
   public final transient DefaultInputPort<T> input = new DefaultInputPort<T>()
@@ -81,7 +87,10 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
         stragglersPort.emit(aReqResponse);
       }
       try {
-        processPython(tuple,getApexPythonEngine());
+        PythonRequestResponse result = processPython(tuple,getApexPythonEngine());
+        if ( result != null) {
+          outputPort.emit(result);
+        }
       } catch (ApexPythonInterpreterException e) {
         errorPort.emit(tuple);
         LOG.error("Error while processing tuple", e);
@@ -132,7 +141,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     }
     setPartitioner();
     try {
-      processPostSetUpPythonInstructions();
+      processPostSetUpPythonInstructions(apexPythonEngine);
     } catch (ApexPythonInterpreterException e) {
       throw new RuntimeException(e);
     }
@@ -154,6 +163,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   {
     super.beginWindow(windowId);
     requestIdForThisWindow = 0;
+    currentWindowId = windowId;
   }
 
   @Override
@@ -192,7 +202,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   {
   }
 
-  public void processPostSetUpPythonInstructions() throws ApexPythonInterpreterException
+  public void processPostSetUpPythonInstructions(ApexPythonEngine pythonEngine) throws ApexPythonInterpreterException
   {
   }
 
@@ -223,10 +233,16 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     this.apexPythonEngine = apexPythonEngine;
   }
 
-  public abstract boolean processPython(T input, ApexPythonEngine pythonEngineRef)
-      throws ApexPythonInterpreterException;
+  public PythonRequestResponse processPython(T input, ApexPythonEngine pythonEngineRef)
+    throws ApexPythonInterpreterException
+  {
+    return null;
+  }
 
-  public abstract Map<String,Object> getPreInitConfigurations();
+  public Map<String,Object> getPreInitConfigurations()
+  {
+    return new HashMap<>();
+  }
 
   public long getSleepTimeDuringInterpreterBoot()
   {

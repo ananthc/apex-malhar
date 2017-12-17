@@ -39,6 +39,8 @@ import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
 import com.google.common.primitives.Ints;
 
+import static com.google.common.base.Preconditions.checkNotNull;
+
 public class JepPythonEngine implements ApexPythonEngine
 {
   private static final Logger LOG = LoggerFactory.getLogger(JepPythonEngine.class);
@@ -145,6 +147,10 @@ public class JepPythonEngine implements ApexPythonEngine
   public Map<String,PythonRequestResponse<Void>> runCommands(WorkerExecutionMode executionMode,long windowId,
       long requestId, PythonInterpreterRequest<Void> request) throws ApexPythonInterpreterException
   {
+    checkNotNullConditions(request);
+    checkNotNull(request.getGenericCommandsRequestPayload(), "Run commands payload not set");
+    checkNotNull(request.getGenericCommandsRequestPayload().getGenericCommands(),
+        "Commands that need to be run not set");
     Map<String,PythonRequestResponse<Void>> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (!executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
@@ -183,6 +189,9 @@ public class JepPythonEngine implements ApexPythonEngine
   public <T> Map<String,PythonRequestResponse<T>> executeMethodCall(WorkerExecutionMode executionMode,long windowId,
       long requestId, PythonInterpreterRequest<T> req) throws ApexPythonInterpreterException
   {
+    checkNotNullConditions(req);
+    checkNotNull(req.getMethodCallRequest(), "Method call info not set");
+    checkNotNull(req.getMethodCallRequest().getNameOfMethod(), "Method name not set");
     Map<String,PythonRequestResponse<T>> returnStatus = new HashMap<>();
     req.setCommandType(PythonCommandType.METHOD_INVOCATION_COMMAND);
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
@@ -216,6 +225,9 @@ public class JepPythonEngine implements ApexPythonEngine
       long requestId, PythonInterpreterRequest<Void> req)
     throws ApexPythonInterpreterException
   {
+    checkNotNullConditions(req);
+    checkNotNull(req.getScriptExecutionRequestPayload(), "Script execution info not set");
+    checkNotNull(req.getScriptExecutionRequestPayload().getScriptName(), "Script name not set");
     Map<String,PythonRequestResponse<Void>> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
@@ -243,11 +255,21 @@ public class JepPythonEngine implements ApexPythonEngine
     return returnStatus;
   }
 
+  private void checkNotNullConditions(PythonInterpreterRequest request)
+  {
+    checkNotNull(request, "Request object cannnot be null");
+    checkNotNull(request.getTimeout(), "Time out value not set");
+    checkNotNull(request.getTimeUnit(), "Time out unit not set");
+  }
+
   @Override
   public <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode,long windowId, long requestId,
       PythonInterpreterRequest<T> request)
     throws ApexPythonInterpreterException
   {
+    checkNotNullConditions(request);
+    checkNotNull(request.getEvalCommandRequestPayload(), "Eval command info not set");
+    checkNotNull(request.getEvalCommandRequestPayload().getEvalCommand(),"Eval command not set");
     Map<String,PythonRequestResponse<T>> statusOfEval = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     if (!executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
@@ -276,9 +298,7 @@ public class JepPythonEngine implements ApexPythonEngine
         }
       }
     }
-    if ( statusOfEval.size() > 0) {
-      commandHistory.add(lastSuccessfullySubmittedRequest);
-    }
+    commandHistory.add(lastSuccessfullySubmittedRequest);
     return statusOfEval;
   }
 
