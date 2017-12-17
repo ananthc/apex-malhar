@@ -61,7 +61,7 @@ public abstract class AbstractPythonExecutionPartitioner implements Partitioner<
 
   }
 
-  public Partitioner.Partition<BasePythonExecutionOperator> clonePartitionAndAssignScanMeta()
+  public Partitioner.Partition<BasePythonExecutionOperator> clonePartition()
   {
     Partitioner.Partition<BasePythonExecutionOperator> clonedKuduInputOperator =
         new DefaultPartition<>(KryoCloneUtils.cloneObject(prototypePythonOperator));

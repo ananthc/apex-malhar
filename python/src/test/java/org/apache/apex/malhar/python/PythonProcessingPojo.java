@@ -18,6 +18,10 @@
  */
 package org.apache.apex.malhar.python;
 
+import org.apache.apex.malhar.python.base.util.NDArrayKryoSerializer;
+
+import com.esotericsoftware.kryo.serializers.FieldSerializer;
+
 import jep.NDArray;
 
 public class PythonProcessingPojo
@@ -27,8 +31,10 @@ public class PythonProcessingPojo
 
   private int x;
 
+  @FieldSerializer.Bind(NDArrayKryoSerializer.class)
   private NDArray<float[]> numpyFloatArray;
 
+  @FieldSerializer.Bind(NDArrayKryoSerializer.class)
   private NDArray<int[]> numpyIntArray;
 
 

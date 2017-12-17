@@ -25,9 +25,8 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.apex.malhar.python.base.ApexPythonEngine;
 import org.apache.apex.malhar.python.base.BasePythonExecutionOperator;
-
+import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 
 public class ThreadStarvationBasedPartitioner extends AbstractPythonExecutionPartitioner
 {
@@ -46,16 +45,19 @@ public class ThreadStarvationBasedPartitioner extends AbstractPythonExecutionPar
   {
     List<Partition<BasePythonExecutionOperator>> returnList = new ArrayList<>();
     if (partitions != null) {
+      returnList.addAll(partitions);
       for (Partition<BasePythonExecutionOperator> aCurrentPartition : partitions) {
         BasePythonExecutionOperator anOperator = aCurrentPartition.getPartitionedInstance();
-        ApexPythonEngine anEngine = anOperator.getApexPythonEngine();
-        if (anEngine != null) {
-          long starvedCount = anEngine.getNumStarvedReturns();
-          long requestsForCheckpointWindow = anOperator.getNumberOfRequestsProcessedPerCheckpoint();
-          float starvationPercent = ((requestsForCheckpointWindow - starvedCount ) / requestsForCheckpointWindow) * 100;
+        long starvedCount = anOperator.getNumStarvedReturns();
+        long requestsForCheckpointWindow = anOperator.getNumberOfRequestsProcessedPerCheckpoint();
+        if ( requestsForCheckpointWindow != 0) { // when the operator is starting for the first time
+          float starvationPercent = 100 - ( ((requestsForCheckpointWindow - starvedCount ) /
+              requestsForCheckpointWindow) * 100) ;
           if (starvationPercent > anOperator.getStarvationPercentBeforeSpawningNewInstance()) {
-            Partition<BasePythonExecutionOperator> newInstance = clonePartitionAndAssignScanMeta();
-            newInstance.getPartitionedInstance().getApexPythonEngine().setCommandHistory(anEngine.getCommandHistory());
+            Partition<BasePythonExecutionOperator> newInstance = clonePartition();
+            List<PythonRequestResponse> commandHistory = new ArrayList<>();
+            commandHistory.addAll(anOperator.getAccumulatedCommandHistory());
+            newInstance.getPartitionedInstance().setAccumulatedCommandHistory(commandHistory);
             returnList.add(newInstance);
           }
         }

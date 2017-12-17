@@ -64,7 +64,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   private PythonExecutionPartitionerType partitionerType = PythonExecutionPartitionerType.THREAD_STARVATION_BASED;
 
-  private AbstractPythonExecutionPartitioner partitioner;
+  private transient AbstractPythonExecutionPartitioner partitioner;
 
   public final transient DefaultOutputPort<PythonRequestResponse> stragglersPort =
       new com.datatorrent.api.DefaultOutputPort<>();
@@ -73,6 +73,12 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
       new com.datatorrent.api.DefaultOutputPort<>();
 
   public final transient DefaultOutputPort<T> errorPort = new com.datatorrent.api.DefaultOutputPort<>();
+
+  private Object objectForLocking = new Object();
+
+  private long numStarvedReturns = 0;
+
+  private List<PythonRequestResponse> accumulatedCommandHistory = new ArrayList<>();
 
   @InputPortFieldAnnotation
   public final transient DefaultInputPort<T> input = new DefaultInputPort<T>()
@@ -117,13 +123,19 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     return jepPythonEngine;
   }
 
-  private void setPartitioner()
+  private void initPartitioner()
   {
-    switch (partitionerType) {
-      default:
-      case THREAD_STARVATION_BASED:
-        partitioner = new ThreadStarvationBasedPartitioner(this);
-        break;
+    if (partitioner == null) {
+      synchronized (objectForLocking) {
+        if (partitioner == null) {
+          switch (partitionerType) {
+            default:
+            case THREAD_STARVATION_BASED:
+              partitioner = new ThreadStarvationBasedPartitioner(this);
+              break;
+          }
+        }
+      }
     }
   }
 
@@ -139,7 +151,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     } catch (ApexPythonInterpreterException e) {
       throw new RuntimeException(e);
     }
-    setPartitioner();
+    initPartitioner();
     try {
       processPostSetUpPythonInstructions(apexPythonEngine);
     } catch (ApexPythonInterpreterException e) {
@@ -176,19 +188,23 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   public Collection<Partition<BasePythonExecutionOperator>> definePartitions(
       Collection<Partition<BasePythonExecutionOperator>> partitions, PartitioningContext context)
   {
+    initPartitioner();
     return partitioner.definePartitions(partitions,context);
   }
 
   @Override
   public void partitioned(Map<Integer, Partition<BasePythonExecutionOperator>> partitions)
   {
+    initPartitioner();
     partitioner.partitioned(partitions);
   }
 
   @Override
   public void beforeCheckpoint(long windowId)
   {
-
+    accumulatedCommandHistory.clear();
+    accumulatedCommandHistory.addAll(getApexPythonEngine().getCommandHistory());
+    numStarvedReturns = getApexPythonEngine().getNumStarvedReturns();
   }
 
   @Override
@@ -289,7 +305,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     return partitioner;
   }
 
-  public void setPartitioner(AbstractPythonExecutionPartitioner partitioner)
+  public void initPartitioner(AbstractPythonExecutionPartitioner partitioner)
   {
     this.partitioner = partitioner;
   }
@@ -302,5 +318,25 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   public void setStarvationPercentBeforeSpawningNewInstance(float starvationPercentBeforeSpawningNewInstance)
   {
     this.starvationPercentBeforeSpawningNewInstance = starvationPercentBeforeSpawningNewInstance;
+  }
+
+  public long getNumStarvedReturns()
+  {
+    return numStarvedReturns;
+  }
+
+  public void setNumStarvedReturns(long numStarvedReturns)
+  {
+    this.numStarvedReturns = numStarvedReturns;
+  }
+
+  public List<PythonRequestResponse> getAccumulatedCommandHistory()
+  {
+    return accumulatedCommandHistory;
+  }
+
+  public void setAccumulatedCommandHistory(List<PythonRequestResponse> accumulatedCommandHistory)
+  {
+    this.accumulatedCommandHistory = accumulatedCommandHistory;
   }
 }

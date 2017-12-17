@@ -38,6 +38,11 @@ public class PythonInterpreterRequest<T>
 
   Class<T> expectedReturnType;
 
+  // This constructor is not to be used by the user code and only exists for Kryo serialization
+  public PythonInterpreterRequest()
+  {
+  }
+
   public PythonInterpreterRequest(Class<T> expectedReturnType)
   {
     this.expectedReturnType = expectedReturnType;

@@ -30,7 +30,7 @@ import org.apache.apex.malhar.python.base.BasePythonExecutionOperator;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
-import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponseUtil;
+import org.apache.apex.malhar.python.base.util.PythonRequestResponseUtil;
 
 import jep.NDArray;
 
@@ -49,7 +49,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     String evalCommand =
         "intMatrix = intMatrix + intArrayToAdd; floatMatrix = floatMatrix + floatArrayToAdd";
     PythonInterpreterRequest<NDArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
-        evalCommand,evalParams,"intArrayToExtract",false, 3,
+        evalCommand,evalParams,"intMatrix",false, 300,
         TimeUnit.MILLISECONDS, NDArray.class);
     lastKnownResponse = pythonEngineRef.eval(
         WorkerExecutionMode.ALL_WORKERS,currentWindowId,requestIdForThisWindow,request);
@@ -61,10 +61,10 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
   {
     List<String> commandsToRun = new ArrayList<>();
     commandsToRun.add("import numpy as np");
-    commandsToRun.add("intMatrix = np.zeroes((2,2),dtype=int)");
-    commandsToRun.add("floatMatrix = np.zeroes((2,2),dtype=float)");
+    commandsToRun.add("intMatrix = np.zeros((2,2),dtype=int)");
+    commandsToRun.add("floatMatrix = np.zeros((2,2),dtype=float)");
     pythonEngineRef.runCommands(WorkerExecutionMode.ALL_WORKERS,0L,0L,
-        PythonRequestResponseUtil.buildRequestObjectForRunCommands(commandsToRun,2, TimeUnit.MILLISECONDS));
+        PythonRequestResponseUtil.buildRequestObjectForRunCommands(commandsToRun,200, TimeUnit.MILLISECONDS));
   }
 
   public Map<String, PythonRequestResponse<NDArray>> getLastKnownResponse()
