@@ -59,7 +59,7 @@ public class PythonExecutorApplicationTest
     }
   };
 
-  @JepPythonTestContext(jepPythonBasedTest = false)
+  @JepPythonTestContext(jepPythonBasedTest = true)
   @Test
   public void testApplication() throws Exception
   {

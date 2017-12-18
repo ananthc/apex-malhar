@@ -45,8 +45,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     Map<String,Object> evalParams = new HashMap<>();
     evalParams.put("intArrayToAdd",input.getNumpyIntArray());
     evalParams.put("floatArrayToAdd",input.getNumpyFloatArray());
-    String evalCommand =
-        "intMatrix = np.add(intMatrix,intArrayToAdd)";
+    String evalCommand = "np.add(intMatrix,intArrayToAdd)";
     PythonInterpreterRequest<NDimensionalArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
         evalCommand,evalParams,"intMatrix",false, 300,
         TimeUnit.MILLISECONDS, NDimensionalArray.class);

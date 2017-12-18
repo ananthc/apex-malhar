@@ -27,6 +27,11 @@ public class PythonInterpreterResponse<T>
 
   Map<String,Boolean> commandStatus;
 
+  // To be used only by the Kryo serializer framework
+  public PythonInterpreterResponse()
+  {
+  }
+
   public PythonInterpreterResponse(Class<T> responseTypeClassHandle)
   {
     responseTypeClass = responseTypeClassHandle;
