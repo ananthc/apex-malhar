@@ -18,11 +18,7 @@
  */
 package org.apache.apex.malhar.python;
 
-import org.apache.apex.malhar.python.base.util.NDArrayKryoSerializer;
-
-import com.esotericsoftware.kryo.serializers.FieldSerializer;
-
-import jep.NDArray;
+import org.apache.apex.malhar.python.base.util.NDimensionalArray;
 
 public class PythonProcessingPojo
 {
@@ -31,11 +27,10 @@ public class PythonProcessingPojo
 
   private int x;
 
-  @FieldSerializer.Bind(NDArrayKryoSerializer.class)
-  private NDArray<float[]> numpyFloatArray;
 
-  @FieldSerializer.Bind(NDArrayKryoSerializer.class)
-  private NDArray<int[]> numpyIntArray;
+  private NDimensionalArray<float[]> numpyFloatArray;
+
+  private NDimensionalArray<int[]> numpyIntArray;
 
 
   public float getY()
@@ -58,22 +53,22 @@ public class PythonProcessingPojo
     this.x = x;
   }
 
-  public NDArray<float[]> getNumpyFloatArray()
+  public NDimensionalArray<float[]> getNumpyFloatArray()
   {
     return numpyFloatArray;
   }
 
-  public void setNumpyFloatArray(NDArray<float[]> numpyFloatArray)
+  public void setNumpyFloatArray(NDimensionalArray<float[]> numpyFloatArray)
   {
     this.numpyFloatArray = numpyFloatArray;
   }
 
-  public NDArray<int[]> getNumpyIntArray()
+  public NDimensionalArray<int[]> getNumpyIntArray()
   {
     return numpyIntArray;
   }
 
-  public void setNumpyIntArray(NDArray<int[]> numpyIntArray)
+  public void setNumpyIntArray(NDimensionalArray<int[]> numpyIntArray)
   {
     this.numpyIntArray = numpyIntArray;
   }

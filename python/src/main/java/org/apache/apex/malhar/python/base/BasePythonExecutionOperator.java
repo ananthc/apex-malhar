@@ -211,6 +211,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   public void checkpointed(long windowId)
   {
     getApexPythonEngine().setNumStarvedReturns(0L);
+    numberOfRequestsProcessedPerCheckpoint = 0;
   }
 
   @Override

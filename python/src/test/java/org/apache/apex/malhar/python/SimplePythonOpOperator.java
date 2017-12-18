@@ -30,13 +30,12 @@ import org.apache.apex.malhar.python.base.BasePythonExecutionOperator;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.util.NDimensionalArray;
 import org.apache.apex.malhar.python.base.util.PythonRequestResponseUtil;
-
-import jep.NDArray;
 
 public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonProcessingPojo>
 {
-  private Map<String,PythonRequestResponse<NDArray>> lastKnownResponse;
+  private Map<String,PythonRequestResponse<NDimensionalArray>> lastKnownResponse;
 
 
   @Override
@@ -47,10 +46,10 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     evalParams.put("intArrayToAdd",input.getNumpyIntArray());
     evalParams.put("floatArrayToAdd",input.getNumpyFloatArray());
     String evalCommand =
-        "intMatrix = intMatrix + intArrayToAdd; floatMatrix = floatMatrix + floatArrayToAdd";
-    PythonInterpreterRequest<NDArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
+        "intMatrix = np.add(intMatrix,intArrayToAdd)";
+    PythonInterpreterRequest<NDimensionalArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
         evalCommand,evalParams,"intMatrix",false, 300,
-        TimeUnit.MILLISECONDS, NDArray.class);
+        TimeUnit.MILLISECONDS, NDimensionalArray.class);
     lastKnownResponse = pythonEngineRef.eval(
         WorkerExecutionMode.ALL_WORKERS,currentWindowId,requestIdForThisWindow,request);
     return lastKnownResponse.get(0);
@@ -67,12 +66,12 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
         PythonRequestResponseUtil.buildRequestObjectForRunCommands(commandsToRun,200, TimeUnit.MILLISECONDS));
   }
 
-  public Map<String, PythonRequestResponse<NDArray>> getLastKnownResponse()
+  public Map<String, PythonRequestResponse<NDimensionalArray>> getLastKnownResponse()
   {
     return lastKnownResponse;
   }
 
-  public void setLastKnownResponse(Map<String, PythonRequestResponse<NDArray>> lastKnownResponse)
+  public void setLastKnownResponse(Map<String, PythonRequestResponse<NDimensionalArray>> lastKnownResponse)
   {
     this.lastKnownResponse = lastKnownResponse;
   }

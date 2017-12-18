@@ -52,7 +52,7 @@ public class ThreadStarvationBasedPartitioner extends AbstractPythonExecutionPar
         long requestsForCheckpointWindow = anOperator.getNumberOfRequestsProcessedPerCheckpoint();
         if ( requestsForCheckpointWindow != 0) { // when the operator is starting for the first time
           float starvationPercent = 100 - ( ((requestsForCheckpointWindow - starvedCount ) /
-              requestsForCheckpointWindow) * 100) ;
+              requestsForCheckpointWindow) * 100);
           if (starvationPercent > anOperator.getStarvationPercentBeforeSpawningNewInstance()) {
             Partition<BasePythonExecutionOperator> newInstance = clonePartition();
             List<PythonRequestResponse> commandHistory = new ArrayList<>();

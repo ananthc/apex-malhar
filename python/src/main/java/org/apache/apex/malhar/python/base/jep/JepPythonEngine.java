@@ -45,7 +45,7 @@ public class JepPythonEngine implements ApexPythonEngine
 {
   private static final Logger LOG = LoggerFactory.getLogger(JepPythonEngine.class);
 
-  private int numWorkerThreads = 3;
+  private int numWorkerThreads = 2;
 
   private String threadGroupName;
 

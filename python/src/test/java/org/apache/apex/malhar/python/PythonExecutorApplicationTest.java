@@ -59,7 +59,7 @@ public class PythonExecutorApplicationTest
     }
   };
 
-  @JepPythonTestContext(jepPythonBasedTest = true)
+  @JepPythonTestContext(jepPythonBasedTest = false)
   @Test
   public void testApplication() throws Exception
   {
@@ -76,7 +76,7 @@ public class PythonExecutorApplicationTest
     // wait until expected result count or timeout
     while (results.size() < pythonExecutorApplication.pojoDataGenerator.getMaxTuples()) {
       sleepTimeCounterForLoopExit += sleepTimePerIteration;
-      if (sleepTimeCounterForLoopExit > 3000000) {
+      if (sleepTimeCounterForLoopExit > 180000) {
         break;
       }
       Thread.sleep(sleepTimePerIteration);

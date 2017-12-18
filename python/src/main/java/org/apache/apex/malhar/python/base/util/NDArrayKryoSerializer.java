@@ -32,6 +32,12 @@ public class NDArrayKryoSerializer extends Serializer<NDArray>
   private static final short FALSE_AS_SHORTINT = 0;
 
   @Override
+  public void setGenerics(Kryo kryo, Class[] generics)
+  {
+    super.setGenerics(kryo, generics);
+  }
+
+  @Override
   public void write(Kryo kryo, Output output, NDArray ndArray)
   {
 

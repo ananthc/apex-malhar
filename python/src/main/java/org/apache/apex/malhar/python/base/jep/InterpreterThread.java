@@ -18,6 +18,7 @@
  */
 package org.apache.apex.malhar.python.base.jep;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,7 @@ import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterReque
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterResponse;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import org.apache.apex.malhar.python.base.requestresponse.ScriptExecutionRequestPayload;
+import org.apache.apex.malhar.python.base.util.NDimensionalArray;
 
 import jep.Jep;
 import jep.JepConfig;
@@ -151,7 +153,20 @@ public class InterpreterThread implements Runnable
       Class<T> type) throws ApexPythonInterpreterException
   {
     try {
-      return type.cast(JEP_INSTANCE.invoke(nameOfGlobalMethod,argsToGlobalMethod.toArray()));
+      if ((argsToGlobalMethod != null) && (argsToGlobalMethod.size() > 0)) {
+        List<Object> paramsToPass = argsToGlobalMethod;
+        List<Object> modifiedParams = new ArrayList<>();
+        for ( Object aMethodParam: argsToGlobalMethod) {
+          if (argsToGlobalMethod.get(0) instanceof NDimensionalArray) {
+            modifiedParams.add(((NDimensionalArray)aMethodParam).toNDArray());
+          } else {
+            modifiedParams.add(aMethodParam);
+          }
+        }
+        return type.cast(JEP_INSTANCE.invoke(nameOfGlobalMethod,modifiedParams.toArray()));
+      } else {
+        return type.cast(JEP_INSTANCE.invoke(nameOfGlobalMethod,new ArrayList<>().toArray()));
+      }
     } catch (JepException e) {
       LOG.error("Error while executing method " + nameOfGlobalMethod, e);
     }
@@ -177,16 +192,20 @@ public class InterpreterThread implements Runnable
     LOG.debug(" params for eval passed in are " + command + " return type:" + expectedReturnType);
     try {
       for (String aKey : globalMethodsParams.keySet()) {
-        JEP_INSTANCE.set(aKey, globalMethodsParams.get(aKey));
+        Object keyVal = globalMethodsParams.get(aKey);
+        if (keyVal instanceof NDimensionalArray) {
+          keyVal = ((NDimensionalArray)keyVal).toNDArray();
+        }
+        JEP_INSTANCE.set(aKey, keyVal);
       }
     } catch (JepException e) {
-      LOG.debug("Error while setting the params for eval expression " + command, e);
+      LOG.error("Error while setting the params for eval expression " + command, e);
       return null;
     }
     try {
       JEP_INSTANCE.eval(command);
     } catch (JepException e) {
-      LOG.debug("Error while evaluating the expression " + command, e);
+      LOG.error("Error while evaluating the expression " + command, e);
       return null;
     }
     try {
@@ -201,7 +220,7 @@ public class InterpreterThread implements Runnable
         JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + aKey);
       }
     } catch (JepException e) {
-      LOG.error("Error while evaluating expression " + command, e);
+      LOG.error("Error while evaluating delete part of expression " + command, e);
       return null;
     }
     return variableToReturn;

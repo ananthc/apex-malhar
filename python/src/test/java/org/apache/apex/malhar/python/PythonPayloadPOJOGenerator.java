@@ -23,11 +23,11 @@ import java.util.Random;
 
 import javax.validation.constraints.Min;
 
+import org.apache.apex.malhar.python.base.util.NDimensionalArray;
+
 import com.datatorrent.api.Context;
 import com.datatorrent.api.DefaultOutputPort;
 import com.datatorrent.api.InputOperator;
-
-import jep.NDArray;
 
 /**
  * Generates and emits a simple float and int for python operator to consume
@@ -91,14 +91,24 @@ public class PythonPayloadPOJOGenerator implements InputOperator
         f[i] = random.nextFloat();
         floatDimensionSums[ i % DIMENSION_SIZE ] = floatDimensionSums[ i % DIMENSION_SIZE ] + f[i];
       }
-      pythonProcessingPojo.setNumpyFloatArray(new NDArray<>(f, DIMENSION_SIZE,DIMENSION_SIZE));
+      NDimensionalArray<float[]> nDimensionalFloatArray = new NDimensionalArray<>();
+      nDimensionalFloatArray.setData(f);
+      nDimensionalFloatArray.setDimensions(new int[] {DIMENSION_SIZE, DIMENSION_SIZE});
+      nDimensionalFloatArray.setLengthOfSequentialArray(floatDimensionSums.length);
+      nDimensionalFloatArray.setSignedFlag(false);
+      pythonProcessingPojo.setNumpyFloatArray(nDimensionalFloatArray);
 
       int[] ints = new int[( DIMENSION_SIZE * DIMENSION_SIZE)];
       for ( int i = 0; i < (DIMENSION_SIZE * DIMENSION_SIZE ); i++) {
         ints[i] = random.nextInt(MAX_RANDOM_INT);
         intDimensionSums[ i % DIMENSION_SIZE ] = intDimensionSums [ i % DIMENSION_SIZE ] + ints[i];
       }
-      pythonProcessingPojo.setNumpyIntArray(new NDArray<>(ints, DIMENSION_SIZE,DIMENSION_SIZE));
+      NDimensionalArray<int[]> nDimensionalIntArray = new NDimensionalArray<>();
+      nDimensionalIntArray.setData(ints);
+      nDimensionalIntArray.setDimensions(new int[] {DIMENSION_SIZE, DIMENSION_SIZE});
+      nDimensionalIntArray.setLengthOfSequentialArray(ints.length);
+      nDimensionalIntArray.setSignedFlag(false);
+      pythonProcessingPojo.setNumpyIntArray(nDimensionalIntArray);
       output.emit(pythonProcessingPojo);
       currentWindowTuplesCounter += 1;
       tuplesCounter += 1;
