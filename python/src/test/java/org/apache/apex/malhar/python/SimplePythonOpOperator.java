@@ -58,13 +58,15 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     evalParams.put("intArrayToAdd",input.getNumpyIntArray());
     evalParams.put("floatArrayToAdd",input.getNumpyFloatArray());
     String evalCommand = "np.add(intMatrix,intArrayToAdd)";
-    //String evalCommand = "200+15";
     PythonInterpreterRequest<NDimensionalArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
         evalCommand,evalParams,"intMatrix",false, 300,
         TimeUnit.MILLISECONDS, NDimensionalArray.class);
     lastKnownResponse = pythonEngineRef.eval(
         WorkerExecutionMode.ALL_WORKERS,currentWindowId,requestIdForThisWindow,request);
-    return lastKnownResponse.get(0);
+    for ( String evalCommandSubmitted: lastKnownResponse.keySet()) {
+      return lastKnownResponse.get(evalCommandSubmitted); // we just need one of the N workers response.
+    }
+    return null;
   }
 
   @Override

@@ -33,6 +33,7 @@ import org.apache.apex.malhar.python.base.partitioner.PythonExecutionPartitioner
 import org.apache.apex.malhar.python.base.partitioner.ThreadStarvationBasedPartitioner;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 
+import com.datatorrent.api.AutoMetric;
 import com.datatorrent.api.Context;
 import com.datatorrent.api.DefaultInputPort;
 import com.datatorrent.api.DefaultOutputPort;
@@ -76,7 +77,11 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   private Object objectForLocking = new Object();
 
+  @AutoMetric
   private long numStarvedReturns = 0;
+
+  @AutoMetric
+  private long numNullResponses = 0;
 
   private List<PythonRequestResponse> accumulatedCommandHistory = new ArrayList<>();
 
@@ -96,6 +101,8 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
         PythonRequestResponse result = processPython(tuple,getApexPythonEngine());
         if ( result != null) {
           outputPort.emit(result);
+        } else {
+          numNullResponses += 1;
         }
       } catch (ApexPythonInterpreterException e) {
         errorPort.emit(tuple);
@@ -183,6 +190,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   public void endWindow()
   {
     super.endWindow();
+    numNullResponses = 0;
   }
 
   @Override

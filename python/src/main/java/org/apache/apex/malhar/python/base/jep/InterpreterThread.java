@@ -223,7 +223,7 @@ public class InterpreterThread implements Runnable
           int[] dimensions = ndArrayJepVal.getDimensions();
           nDimArray.setDimensions(dimensions);
           int lengthInOneDimension = 1;
-          for ( int i=0; i < dimensions.length; i++) {
+          for ( int i = 0; i < dimensions.length; i++) {
             lengthInOneDimension *= dimensions[i];
           }
           nDimArray.setLengthOfSequentialArray(lengthInOneDimension);
