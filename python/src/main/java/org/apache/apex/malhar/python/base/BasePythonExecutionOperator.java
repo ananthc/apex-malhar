@@ -145,7 +145,8 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     super.setup(context);
     apexPythonEngine = initApexPythonEngineImpl(context);
     try {
-      apexPythonEngine.preInitInterpreter(getPreInitConfigurations());
+      Map<String,Object> preInitConfigurations = getPreInitConfigurations();
+      apexPythonEngine.preInitInterpreter(preInitConfigurations);
       apexPythonEngine.startInterpreter();
       apexPythonEngine.postStartInterpreter();
     } catch (ApexPythonInterpreterException e) {

@@ -41,6 +41,7 @@ import org.apache.apex.malhar.python.base.util.NDimensionalArray;
 import jep.Jep;
 import jep.JepConfig;
 import jep.JepException;
+import jep.NDArray;
 
 /**
  *
@@ -124,7 +125,10 @@ public class InterpreterThread implements Runnable
       Set<String> sharedLibs = (Set<String>)initConfigs.get(PYTHON_SHARED_LIBS);
       if ( sharedLibs != null) {
         config.setSharedModules(sharedLibs);
+        LOG.info("Loaded " + sharedLibs.size() + " shared libraries as config");
       }
+    } else {
+      LOG.info("No shared libraries loaded");
     }
     try {
       JEP_INSTANCE = new Jep(config);
@@ -210,7 +214,23 @@ public class InterpreterThread implements Runnable
     }
     try {
       if (variableToExtract != null) {
-        variableToReturn =  expectedReturnType.cast(JEP_INSTANCE.getValue(variableToExtract));
+        Object extractedVariable = JEP_INSTANCE.getValue(variableToExtract);
+        if (extractedVariable instanceof NDArray) {
+          NDArray ndArrayJepVal = (NDArray)extractedVariable;
+          NDimensionalArray nDimArray = new NDimensionalArray();
+          nDimArray.setData(ndArrayJepVal.getData());
+          nDimArray.setSignedFlag(ndArrayJepVal.isUnsigned());
+          int[] dimensions = ndArrayJepVal.getDimensions();
+          nDimArray.setDimensions(dimensions);
+          int lengthInOneDimension = 1;
+          for ( int i=0; i < dimensions.length; i++) {
+            lengthInOneDimension *= dimensions[i];
+          }
+          nDimArray.setLengthOfSequentialArray(lengthInOneDimension);
+          variableToReturn = expectedReturnType.cast(nDimArray);
+        } else {
+          variableToReturn =  expectedReturnType.cast(extractedVariable);
+        }
         if (deleteExtractedVariable) {
           JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + variableToExtract);
         }

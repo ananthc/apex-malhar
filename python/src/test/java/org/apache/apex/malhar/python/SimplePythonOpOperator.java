@@ -20,14 +20,17 @@ package org.apache.apex.malhar.python;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import org.apache.apex.malhar.python.base.ApexPythonEngine;
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
 import org.apache.apex.malhar.python.base.BasePythonExecutionOperator;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
+import org.apache.apex.malhar.python.base.jep.InterpreterThread;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import org.apache.apex.malhar.python.base.util.NDimensionalArray;
@@ -37,6 +40,15 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
 {
   private Map<String,PythonRequestResponse<NDimensionalArray>> lastKnownResponse;
 
+  @Override
+  public Map<String, Object> getPreInitConfigurations()
+  {
+    Map<String,Object> preInitConfigs = new HashMap<>();
+    Set<String> sharedLibsList = new HashSet<>();
+    sharedLibsList.add("numpy");
+    preInitConfigs.put(InterpreterThread.PYTHON_SHARED_LIBS, sharedLibsList);
+    return preInitConfigs;
+  }
 
   @Override
   public PythonRequestResponse processPython(PythonProcessingPojo input, ApexPythonEngine pythonEngineRef)
@@ -46,6 +58,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     evalParams.put("intArrayToAdd",input.getNumpyIntArray());
     evalParams.put("floatArrayToAdd",input.getNumpyFloatArray());
     String evalCommand = "np.add(intMatrix,intArrayToAdd)";
+    //String evalCommand = "200+15";
     PythonInterpreterRequest<NDimensionalArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
         evalCommand,evalParams,"intMatrix",false, 300,
         TimeUnit.MILLISECONDS, NDimensionalArray.class);
@@ -58,6 +71,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
   public void processPostSetUpPythonInstructions(ApexPythonEngine pythonEngineRef) throws ApexPythonInterpreterException
   {
     List<String> commandsToRun = new ArrayList<>();
+    commandsToRun.add("import sys");
     commandsToRun.add("import numpy as np");
     commandsToRun.add("intMatrix = np.zeros((2,2),dtype=int)");
     commandsToRun.add("floatMatrix = np.zeros((2,2),dtype=float)");
