@@ -88,6 +88,7 @@ public class JepPythonEngine implements ApexPythonEngine
   protected InterpreterWrapper selectWorkerForCurrentCall(long requestId)
   {
     int slotToLookFor = Ints.saturatedCast(requestId) % numWorkerThreads;
+    LOG.debug("Slot that is being looked for in the worker pool " + slotToLookFor);
     boolean isWorkerFound = false;
     int numWorkersScannedForAvailability = 0;
     InterpreterWrapper aWorker = null;

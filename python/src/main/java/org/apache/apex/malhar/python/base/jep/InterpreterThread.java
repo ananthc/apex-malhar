@@ -58,6 +58,8 @@ public class InterpreterThread implements Runnable
 
   public static final String PYTHON_SHARED_LIBS = "PYTHON_SHARED_LIBS";
 
+  public static final String SPIN_POLICY = "SPIN_POLICY";
+
   public transient Jep JEP_INSTANCE;
 
   private transient volatile boolean isStopped = false;
@@ -73,6 +75,8 @@ public class InterpreterThread implements Runnable
   private transient volatile BlockingQueue<PythonRequestResponse> responseQueue;
 
   private String threadID;
+
+  private SpinPolicy spinPolicy = SpinPolicy.SLEEP;
 
   private Map<String,Object> initConfigs = new HashMap<>();
 
@@ -129,6 +133,9 @@ public class InterpreterThread implements Runnable
       }
     } else {
       LOG.info("No shared libraries loaded");
+    }
+    if (initConfigs.containsKey(SPIN_POLICY)) {
+      spinPolicy = SpinPolicy.valueOf((String)initConfigs.get(SPIN_POLICY));
     }
     try {
       JEP_INSTANCE = new Jep(config);
@@ -324,7 +331,7 @@ public class InterpreterThread implements Runnable
       }
     }
     while (!isStopped) {
-      if (requestQueue.isEmpty()) {
+      if ( (requestQueue.isEmpty()) && (spinPolicy == SpinPolicy.SLEEP)) {
         try {
           Thread.sleep(0L,100);
           continue;
@@ -429,5 +436,15 @@ public class InterpreterThread implements Runnable
   public void setBusy(boolean busy)
   {
     busyFlag = busy;
+  }
+
+  public SpinPolicy getSpinPolicy()
+  {
+    return spinPolicy;
+  }
+
+  public void setSpinPolicy(SpinPolicy spinPolicy)
+  {
+    this.spinPolicy = spinPolicy;
   }
 }

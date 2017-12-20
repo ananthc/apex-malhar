@@ -72,17 +72,18 @@ public class PythonExecutorApplicationTest
     pythonExecutorApplication.outputFn =  outputFn;
     Launcher.AppHandle appHandle = launcher.launchApp(pythonExecutorApplication, conf, launchAttributes);
     int sleepTimeCounterForLoopExit = 0;
-    int sleepTimePerIteration = 500;
+    int sleepTimePerIteration = 1000;
     // wait until expected result count or timeout
     while (results.size() < pythonExecutorApplication.pojoDataGenerator.getMaxTuples()) {
       sleepTimeCounterForLoopExit += sleepTimePerIteration;
-      if (sleepTimeCounterForLoopExit > 30000) {
+      if (sleepTimeCounterForLoopExit > 2430000) {
         break;
       }
+      LOG.info("Test sleeping until the application time out is reached");
       Thread.sleep(sleepTimePerIteration);
     }
     appHandle.shutdown(Launcher.ShutdownMode.KILL);
-    assertEquals(results.size(), pythonExecutorApplication.pojoDataGenerator.getMaxTuples());
+    assertEquals(pythonExecutorApplication.pojoDataGenerator.getMaxTuples(), results.size());
   }
 
 }

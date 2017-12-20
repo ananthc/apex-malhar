@@ -41,10 +41,10 @@ public class PythonPayloadPOJOGenerator implements InputOperator
 
   // Limit number of emitted tuples per window
   @Min(1)
-  private long maxTuplesPerWindow = 10;
+  private long maxTuplesPerWindow = 150;
 
   @Min(1)
-  private long maxTuples = 100;
+  private long maxTuples = 300;
 
   private final Random random = new Random();
 

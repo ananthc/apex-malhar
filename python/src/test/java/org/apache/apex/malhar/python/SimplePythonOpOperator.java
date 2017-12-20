@@ -57,12 +57,12 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     Map<String,Object> evalParams = new HashMap<>();
     evalParams.put("intArrayToAdd",input.getNumpyIntArray());
     evalParams.put("floatArrayToAdd",input.getNumpyFloatArray());
-    String evalCommand = "np.add(intMatrix,intArrayToAdd)";
+    String evalCommand = "intMatrix = np.add(intMatrix,intArrayToAdd)";
     PythonInterpreterRequest<NDimensionalArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
-        evalCommand,evalParams,"intMatrix",false, 300,
+        evalCommand,evalParams,"intMatrix",false, 10,
         TimeUnit.MILLISECONDS, NDimensionalArray.class);
     lastKnownResponse = pythonEngineRef.eval(
-        WorkerExecutionMode.ALL_WORKERS,currentWindowId,requestIdForThisWindow,request);
+        WorkerExecutionMode.ANY_WORKER,currentWindowId,requestIdForThisWindow,request);
     for ( String evalCommandSubmitted: lastKnownResponse.keySet()) {
       return lastKnownResponse.get(evalCommandSubmitted); // we just need one of the N workers response.
     }
