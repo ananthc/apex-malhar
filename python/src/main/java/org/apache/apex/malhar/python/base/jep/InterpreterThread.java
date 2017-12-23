@@ -44,14 +44,56 @@ import jep.JepException;
 import jep.NDArray;
 
 /**
+ * <p>
+ * Represents a python interpreter instance embedded in JVM memory using the JEP ( Java embedded Python ) engine.
+ * JEP uses JNI wrapper around the embedded Python instance. JEP mandates that the thread that created the JEP
+ * instance is the only thread that can perform method calls on the embedded interpreter. This requires
+ * the Apex operator implementation to decouple JEP execution logic from the operator processing main thread.
+ * <b>Note that this embedded python is an interpreter and this essentially means the state of the interpreter
+ * is maintained across all calls to the interpreter.</b>
+ * The threaded implementation provides the following main functionalities
+ * <ol>
+ *   <li>An evaluation expression that can interpret a string as a python command. The user can also set
+ *    variable values that are
+ *      <ul>
+ *         <li>Transferred to the interpreter with the same variable names</li>
+ *         <li>Garbage collected from the python interpreter space</li>
+ *      </ul>
+ *   </li>
+ *   <li>
+ *     A method call invocation wherein parameters can be sent to the previously defined method (the method must have to
+ *      be defined perhaps via an eval expression or a previous execute script call)
+ *   </li>
+ *   <li>A script call command that can execute a script. There is currently no support to pass params to scripts</li>
+ *   <li>A handy mechanism to execute a series of commands. Note that this is a simple wrapper around the
+ *    eval expression. The main difference here is that there are no user variables substitution used in
+ *     this model. This is useful for statements like import ( ex: import numpy as np ) which does not require
+ *      user variables conversion</li>
+ * </ol>
+ * </p>
  *
+ * <p>
+ *   The logic is executed using a request and response queue model. The thread keeps consuming from a request queue
+ *   and submits results to a response queue.
+ * </p>
+ * <p>
+ *   Note that all outputs are being redirected to the standard logger. Hence using statements like print(secret)
+ *   needs to be avoided as the result of the print command is captured in the log.
+ * </p>
+ * <p>
+ *   When using Cpython libraries like numpy, <b>ensure you first register numpy as a shared library</b> before using it
+ *   in even import statements. Not doing so will result in very obscure errors.
+ * </p>
  */
 
 public class InterpreterThread implements Runnable
 {
   private static final Logger LOG = LoggerFactory.getLogger(InterpreterThread.class);
 
+  /* Name of the dynamically loaded JNI library */
   public static final String JEP_LIBRARY_NAME = "jep";
+
+  /* The string command which will be used to delete python variables after they are used. */
   public static final String PYTHON_DEL_COMMAND = "del ";
 
   public static final String PYTHON_INCLUDE_PATHS = "PYTHON_INCLUDE_PATHS";
@@ -62,10 +104,13 @@ public class InterpreterThread implements Runnable
 
   public transient Jep JEP_INSTANCE;
 
+  /* Used by the operator thread or other threads to mark the stopping of processing of the interpreter command loop */
   private transient volatile boolean isStopped = false;
 
+  /* Used to represent the current state of this thread whether it is currently busy executing a command */
   private transient volatile boolean busyFlag = false;
 
+  /* Represents the default amount of time that this thread will wait to read a command from the request queue */
   private long timeOutToPollFromRequestQueue = 1;
 
   private TimeUnit timeUnitsToPollFromRequestQueue = TimeUnit.MILLISECONDS;
@@ -74,12 +119,28 @@ public class InterpreterThread implements Runnable
 
   private transient volatile BlockingQueue<PythonRequestResponse> responseQueue;
 
+  /* An id that can be useful while logging statements */
   private String threadID;
 
+  /* Whether this thread should sleep for a few moments if there are no requests are keep checking the request queue */
   private SpinPolicy spinPolicy = SpinPolicy.SLEEP;
 
+  /* Holds the configs that are used to initialize the interpreter thread. Examples of config are shared libraries and
+  include paths for the interpreter. The key is one of the constants defined in this class and value is specific to the
+  config type that is being set.
+   */
   private Map<String,Object> initConfigs = new HashMap<>();
 
+  /* Used as a flag to denote an error situation in the interpreter so that the next set of commands to run
+   *  an empty/null eval expression to clear any erraneous state  */
+  private boolean errorEncountered = false;
+
+  /***
+   * Constructs an interpreter thread instance. Note that the constructor does not start the interpreter in memory yet.
+   * @param requestQueue The queue from which requests will be processed from.
+   * @param responseQueue The queue into which the responses will be written into
+   * @param threadID An identifier for this thread name for efficient logging markers
+   */
   public InterpreterThread(BlockingQueue<PythonRequestResponse> requestQueue,
       BlockingQueue<PythonRequestResponse> responseQueue,String threadID)
   {
@@ -88,11 +149,20 @@ public class InterpreterThread implements Runnable
     this.threadID = threadID;
   }
 
+  /***
+   * Loads the JEP dynamic library for the JVM to use the JNI bridge into the interpreter
+   * @throws ApexPythonInterpreterException if the library could not be loaded or located
+   */
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
   {
-    LOG.info("Java library path being used for Interpreted ID " +  threadID + " " +
+    LOG.info(threadID + " Java library path being used for Interpreted ID " +  threadID + " " +
         System.getProperty("java.library.path"));
-    System.loadLibrary(JEP_LIBRARY_NAME);
+    try {
+      System.loadLibrary(JEP_LIBRARY_NAME);
+    } catch (Exception e) {
+      throw new ApexPythonInterpreterException(e);
+    }
+    LOG.info(threadID + " JEP library loaded successfully");
   }
 
 
@@ -101,12 +171,21 @@ public class InterpreterThread implements Runnable
     return JEP_INSTANCE;
   }
 
+  /***
+   * Executes the logic required before the start of the interpreter. In this case, it is just registering of the
+   * configs which are to be used when the interpreter is about to load
+   * @param preInitConfigs
+   * @throws ApexPythonInterpreterException
+   */
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
   {
     initConfigs.putAll(preInitConfigs);
   }
 
-
+  /***
+   * Starts the interpreter by loading the shared libraries
+   * @throws ApexPythonInterpreterException if the interpreter could not be started
+   */
   public void startInterpreter() throws ApexPythonInterpreterException
   {
     Thread.currentThread().setName(threadID);
@@ -129,10 +208,10 @@ public class InterpreterThread implements Runnable
       Set<String> sharedLibs = (Set<String>)initConfigs.get(PYTHON_SHARED_LIBS);
       if ( sharedLibs != null) {
         config.setSharedModules(sharedLibs);
-        LOG.info("Loaded " + sharedLibs.size() + " shared libraries as config");
+        LOG.info(threadID + " Loaded " + sharedLibs.size() + " shared libraries as config");
       }
     } else {
-      LOG.info("No shared libraries loaded");
+      LOG.info(threadID + " No shared libraries loaded");
     }
     if (initConfigs.containsKey(SPIN_POLICY)) {
       spinPolicy = SpinPolicy.valueOf((String)initConfigs.get(SPIN_POLICY));
@@ -144,8 +223,14 @@ public class InterpreterThread implements Runnable
     }
   }
 
-
-  private Map<String,Boolean> runCommands(List<String> commands) throws ApexPythonInterpreterException
+  /***
+   * Runs a series of interpreter commands. Note that no params can be passed from the JVM to the python interpreter
+   * space
+   * @param commands The series of commands that will be executed sequentially
+   * @return A map containing the result of execution of each of the commands. The command is the key that was
+   * passed as input and the value is a boolean whether the command was executed successfully
+   */
+  private Map<String,Boolean> runCommands(List<String> commands)
   {
     Map<String,Boolean> resultsOfExecution = new HashMap<>();
     for (String aCommand : commands) {
@@ -153,15 +238,26 @@ public class InterpreterThread implements Runnable
         resultsOfExecution.put(aCommand,JEP_INSTANCE.eval(aCommand));
       } catch (JepException e) {
         resultsOfExecution.put(aCommand,Boolean.FALSE);
-        LOG.error("Error while running command " + aCommand, e);
+        errorEncountered = true;
+        LOG.error(threadID + " Error while running command " + aCommand, e);
         return resultsOfExecution;
       }
     }
     return resultsOfExecution;
   }
 
-  private <T> T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod,
-      Class<T> type) throws ApexPythonInterpreterException
+  /***
+   * Executes a method call by passing any parameters to the method call. The params are passed in the order they are
+   *  set in the list.
+   * @param nameOfGlobalMethod Name of the method to invoke
+   * @param argsToGlobalMethod Arguments to the method call. Typecasting is interpreted at runtime and hence multiple
+   *                           types can be sent as part of the parameter list
+   * @param type The class of the return parameter. Note that in some cases the return type will be the highest possible
+   *             bit size. For example addition of tow ints passed in might return a Long by the interpreter.
+   * @param <T> Represents the type of the return parameter
+   * @return The response from the method call that the python method returned
+   */
+  private <T> T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod, Class<T> type)
   {
     try {
       if ((argsToGlobalMethod != null) && (argsToGlobalMethod.size() > 0)) {
@@ -179,44 +275,69 @@ public class InterpreterThread implements Runnable
         return type.cast(JEP_INSTANCE.invoke(nameOfGlobalMethod,new ArrayList<>().toArray()));
       }
     } catch (JepException e) {
+      errorEncountered = true;
       LOG.error("Error while executing method " + nameOfGlobalMethod, e);
     }
     return null;
   }
 
+  /***
+   * Executes a python script which can be located in the path
+   * @param scriptName The path to the script
+   * @return true if the script invocation was successfull or false otherwise
+   */
   private boolean executeScript(String scriptName)
-    throws ApexPythonInterpreterException
   {
     try {
       JEP_INSTANCE.runScript(scriptName);
       return true;
     } catch (JepException e) {
+      errorEncountered = true;
       LOG.error(" Error while executing script " + scriptName, e);
     }
     return false;
   }
 
-  private <T> T eval(String command, String variableToExtract, Map<String, Object> globalMethodsParams,
-      boolean deleteExtractedVariable,Class<T> expectedReturnType) throws ApexPythonInterpreterException
+  /***
+   * Evaluates a string expression by passing in any variable subsitution into the Interpreter space if required. Also
+   * handles the garbage collection of the variables passed and offers a configurable way to delete any variable created
+   *  as part of the evaluation expression.
+   * @param command The string equivalent of the command
+   * @param variableToExtract The name of the variable that would need to be extracted from the python interpreter space
+   *                          to the JVM space.
+   * @param variableSubstituionParams Key value pairs representing the variables that need to be passed into the
+   *                                  interpreter space and are part of the eval expression.
+   * @param deleteExtractedVariable if the L.H.S. of an assignment expression variable needs to be deleted. This is
+   *                                essentially the variable that is being requested to extract i.e. the second
+   *                                parameter to this method.
+   * @param expectedReturnType Class representing the expected return type
+   * @param <T> Template signature for the expected return type
+   * @return The value that is extracted from the interpreter space ( possibly created as part of the eval expression or
+   *  otherwise ). Returns null if any error
+   */
+  private <T> T eval(String command, String variableToExtract, Map<String, Object> variableSubstituionParams,
+      boolean deleteExtractedVariable,Class<T> expectedReturnType)
   {
     T variableToReturn = null;
-    LOG.debug(" params for eval passed in are " + command + " return type:" + expectedReturnType);
+    LOG.debug(threadID + " Params for eval passed in are " + command + " return type:" + expectedReturnType);
     try {
-      for (String aKey : globalMethodsParams.keySet()) {
-        Object keyVal = globalMethodsParams.get(aKey);
+      for (String aKey : variableSubstituionParams.keySet()) {
+        Object keyVal = variableSubstituionParams.get(aKey);
         if (keyVal instanceof NDimensionalArray) {
           keyVal = ((NDimensionalArray)keyVal).toNDArray();
         }
         JEP_INSTANCE.set(aKey, keyVal);
       }
     } catch (JepException e) {
-      LOG.error("Error while setting the params for eval expression " + command, e);
+      errorEncountered = true;
+      LOG.error(threadID + " Error while setting the params for eval expression " + command, e);
       return null;
     }
     try {
       JEP_INSTANCE.eval(command);
     } catch (JepException e) {
-      LOG.error("Error while evaluating the expression " + command, e);
+      errorEncountered = true;
+      LOG.error(threadID + " Error while evaluating the expression " + command, e);
       return null;
     }
     try {
@@ -242,23 +363,42 @@ public class InterpreterThread implements Runnable
           JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + variableToExtract);
         }
       }
-      for (String aKey: globalMethodsParams.keySet()) {
-        LOG.debug("deleting " + aKey);
+      for (String aKey: variableSubstituionParams.keySet()) {
+        LOG.debug(threadID + " deleting " + aKey);
         JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + aKey);
       }
     } catch (JepException e) {
+      errorEncountered = true;
       LOG.error("Error while evaluating delete part of expression " + command, e);
       return null;
     }
     return variableToReturn;
   }
 
+  /***
+   * Stops the interpreter as requested from the operator/main thread
+   * @throws ApexPythonInterpreterException if not able to stop the
+   */
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
     isStopped = true;
-    JEP_INSTANCE.close();
+    LOG.info(threadID + " Attempting to close the interpreter thread");
+    try {
+      JEP_INSTANCE.close();
+    } catch (Exception e) {
+      LOG.error( threadID + " Error while stopping the interpreter thread ", e);
+      throw new ApexPythonInterpreterException(e);
+    }
+    LOG.info( threadID + " Interpreter closed");
   }
 
+  /***
+   * Responsible for polling the request queue and formatting the request payload to make it compatible to the
+   *  individual processing logic of the functionalities provided by the interpreter API methods.
+   * @param <T> Java templating signature enforcement
+   * @throws ApexPythonInterpreterException if an unrecognized command is issued.
+   * @throws InterruptedException
+   */
   private <T> void processCommand() throws ApexPythonInterpreterException, InterruptedException
   {
 
@@ -267,6 +407,15 @@ public class InterpreterThread implements Runnable
     if (requestResponseHandle != null) {
       LOG.debug("Processing command " + requestResponseHandle.getPythonInterpreterRequest().getCommandType());
       busyFlag = true;
+      if (errorEncountered) {
+        try {
+          JEP_INSTANCE.eval(null);
+          errorEncountered = false;
+        } catch (JepException e) {
+          LOG.error( threadID + " Error while trying to clear the state of the interpreter due to previous command"
+           + " " + e.getMessage() , e);
+        }
+      }
       PythonInterpreterRequest<T> request =
           requestResponseHandle.getPythonInterpreterRequest();
       PythonInterpreterResponse<T> response =

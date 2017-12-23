@@ -45,7 +45,7 @@ import com.datatorrent.common.util.BaseOperator;
 
 public abstract class BasePythonExecutionOperator<T> extends BaseOperator implements
     Operator.ActivationListener<Context.OperatorContext>, Partitioner<BasePythonExecutionOperator>,
-    Operator.CheckpointNotificationListener, StatsListener
+    Operator.CheckpointNotificationListener, StatsListener, Operator.IdleTimeHandler
 {
   private static final transient Logger LOG = LoggerFactory.getLogger(BasePythonExecutionOperator.class);
 
@@ -92,11 +92,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     public void process(T tuple)
     {
       numberOfRequestsProcessedPerCheckpoint += 1;
-      List<PythonRequestResponse> stragglerResponse = new ArrayList<>();
-      getApexPythonEngine().getDelayedResponseQueue().drainTo(stragglerResponse);
-      for (PythonRequestResponse aReqResponse : stragglerResponse) {
-        stragglersPort.emit(aReqResponse);
-      }
+      emitStragglers();
       try {
         PythonRequestResponse result = processPython(tuple,getApexPythonEngine());
         if ( result != null) {
@@ -123,6 +119,14 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   }
 
+  private void emitStragglers()
+  {
+    List<PythonRequestResponse> stragglerResponse = new ArrayList<>();
+    getApexPythonEngine().getDelayedResponseQueue().drainTo(stragglerResponse);
+    for (PythonRequestResponse aReqResponse : stragglerResponse) {
+      stragglersPort.emit(aReqResponse);
+    }
+  }
   protected ApexPythonEngine initApexPythonEngineImpl(Context.OperatorContext context)
   {
     JepPythonEngine jepPythonEngine = new JepPythonEngine("" + context.getId(),workerThreadPoolSize);
@@ -230,6 +234,12 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   public void processPostSetUpPythonInstructions(ApexPythonEngine pythonEngine) throws ApexPythonInterpreterException
   {
+  }
+
+  @Override
+  public void handleIdleTime()
+  {
+    emitStragglers();
   }
 
   @Override
