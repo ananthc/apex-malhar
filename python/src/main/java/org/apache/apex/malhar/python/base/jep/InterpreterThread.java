@@ -344,6 +344,7 @@ public class InterpreterThread implements Runnable
       return null;
     }
     try {
+      LOG.debug("Executing the eval expression in the interpreter instance " + command);
       JEP_INSTANCE.eval(command);
     } catch (JepException e) {
       errorEncountered = true;
@@ -512,6 +513,7 @@ public class InterpreterThread implements Runnable
         throw new RuntimeException(e);
       }
     }
+    LOG.info("Stop condition detected for this thread. Stopping the in-memory interpreter now...");
     try {
       stopInterpreter();
     } catch (ApexPythonInterpreterException e) {
