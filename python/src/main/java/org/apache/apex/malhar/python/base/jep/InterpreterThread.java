@@ -102,6 +102,9 @@ public class InterpreterThread implements Runnable
 
   public static final String SPIN_POLICY = "SPIN_POLICY";
 
+  /* Time the thread sleeps in case there are no requests in the queue */
+  public static final String SLEEP_TIME_MS_IN_CASE_OF_NO_REQUESTS = "SLEEP_TIME_MS_IN_CASE_OF_NO_REQUESTS";
+
   public transient Jep JEP_INSTANCE;
 
   /* Used by the operator thread or other threads to mark the stopping of processing of the interpreter command loop */
@@ -134,6 +137,8 @@ public class InterpreterThread implements Runnable
   /* Used as a flag to denote an error situation in the interpreter so that the next set of commands to run
    *  an empty/null eval expression to clear any erraneous state  */
   private boolean errorEncountered = false;
+
+  private long sleepTimeMsInCaseOfNoRequests = 1;
 
   /***
    * Constructs an interpreter thread instance. Note that the constructor does not start the interpreter in memory yet.
@@ -217,6 +222,10 @@ public class InterpreterThread implements Runnable
     if (initConfigs.containsKey(SPIN_POLICY)) {
       spinPolicy = SpinPolicy.valueOf((String)initConfigs.get(SPIN_POLICY));
       LOG.debug("Configuring spin policy to be " + spinPolicy);
+    }
+    if (initConfigs.containsKey(SLEEP_TIME_MS_IN_CASE_OF_NO_REQUESTS)) {
+      sleepTimeMsInCaseOfNoRequests = (Long)initConfigs.get(SLEEP_TIME_MS_IN_CASE_OF_NO_REQUESTS);
+      LOG.debug("Configuring sleep time for no requests situation to be " + sleepTimeMsInCaseOfNoRequests);
     }
     try {
       LOG.info("Launching the in-memory interpreter");
@@ -501,7 +510,7 @@ public class InterpreterThread implements Runnable
       if ( (requestQueue.isEmpty()) && (spinPolicy == SpinPolicy.SLEEP)) {
         LOG.debug("Sleeping the current thread as there are no more requests to process from the queue");
         try {
-          Thread.sleep(1L);
+          Thread.sleep(sleepTimeMsInCaseOfNoRequests);
           continue;
         } catch (InterruptedException e) {
           throw new RuntimeException(e);
