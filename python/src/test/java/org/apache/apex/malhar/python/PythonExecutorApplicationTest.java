@@ -76,7 +76,7 @@ public class PythonExecutorApplicationTest
     // wait until expected result count or timeout
     while (results.size() < pythonExecutorApplication.pojoDataGenerator.getMaxTuples()) {
       sleepTimeCounterForLoopExit += sleepTimePerIteration;
-      if (sleepTimeCounterForLoopExit > 2430000) {
+      if (sleepTimeCounterForLoopExit > 30000) {
         break;
       }
       LOG.info("Test sleeping until the application time out is reached");

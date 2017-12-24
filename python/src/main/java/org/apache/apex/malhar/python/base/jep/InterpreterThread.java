@@ -501,7 +501,7 @@ public class InterpreterThread implements Runnable
       if ( (requestQueue.isEmpty()) && (spinPolicy == SpinPolicy.SLEEP)) {
         LOG.debug("Sleeping the current thread as there are no more requests to process from the queue");
         try {
-          Thread.sleep(0L,100);
+          Thread.sleep(1L);
           continue;
         } catch (InterruptedException e) {
           throw new RuntimeException(e);

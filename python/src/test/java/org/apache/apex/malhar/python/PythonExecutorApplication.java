@@ -50,7 +50,6 @@ public class PythonExecutorApplication implements StreamingApplication
   {
     pojoDataGenerator = dag.addOperator("Input", new PythonPayloadPOJOGenerator());
     simplePythonOpOperator = dag.addOperator("pythonprocessor", new SimplePythonOpOperator());
-
     FunctionOperator.MapFunctionOperator<Object, ?> output = dag.addOperator("out",
         new FunctionOperator.MapFunctionOperator<>(outputFn));
 

@@ -174,7 +174,7 @@ public class JepPythonEngine implements ApexPythonEngine
       } else {
         LOG.debug("Executing run commands on all of the interpreter worker threads");
         long  timeOutPerWorker = TimeUnit.NANOSECONDS.convert(request.getTimeout(),request.getTimeUnit()) /
-          numWorkerThreads;
+            numWorkerThreads;
         LOG.debug("Allocating " + timeOutPerWorker + " nanoseconds for each of the worker threads");
         if ( timeOutPerWorker == 0) {
           timeOutPerWorker = 1;
@@ -284,8 +284,7 @@ public class JepPythonEngine implements ApexPythonEngine
 
   @Override
   public <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode,long windowId, long requestId,
-      PythonInterpreterRequest<T> request)
-    throws ApexPythonInterpreterException
+      PythonInterpreterRequest<T> request) throws ApexPythonInterpreterException
   {
     checkNotNullConditions(request);
     checkNotNull(request.getEvalCommandRequestPayload(), "Eval command info not set");
@@ -306,7 +305,7 @@ public class JepPythonEngine implements ApexPythonEngine
         }
       } else {
         long timeOutPerWorker = TimeUnit.NANOSECONDS.convert(request.getTimeout(), request.getTimeUnit()) /
-          numWorkerThreads;
+            numWorkerThreads;
         if ( timeOutPerWorker == 0) {
           timeOutPerWorker = 1;
         }
