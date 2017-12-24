@@ -155,14 +155,14 @@ public class InterpreterThread implements Runnable
    */
   private void loadMandatoryJVMLibraries() throws ApexPythonInterpreterException
   {
-    LOG.info(threadID + " Java library path being used for Interpreted ID " +  threadID + " " +
+    LOG.info("Java library path being used for Interpreted ID " +  threadID + " " +
         System.getProperty("java.library.path"));
     try {
       System.loadLibrary(JEP_LIBRARY_NAME);
     } catch (Exception e) {
       throw new ApexPythonInterpreterException(e);
     }
-    LOG.info(threadID + " JEP library loaded successfully");
+    LOG.info("JEP library loaded successfully");
   }
 
 
@@ -199,6 +199,7 @@ public class InterpreterThread implements Runnable
     if (initConfigs.containsKey(PYTHON_INCLUDE_PATHS)) {
       List<String> includePaths = (List<String>)initConfigs.get(PYTHON_INCLUDE_PATHS);
       if ( includePaths != null) {
+        LOG.info("Adding include path for the in-memory interpreter instance");
         for (String anIncludePath: includePaths) {
           config.addIncludePaths(anIncludePath);
         }
@@ -208,15 +209,17 @@ public class InterpreterThread implements Runnable
       Set<String> sharedLibs = (Set<String>)initConfigs.get(PYTHON_SHARED_LIBS);
       if ( sharedLibs != null) {
         config.setSharedModules(sharedLibs);
-        LOG.info(threadID + " Loaded " + sharedLibs.size() + " shared libraries as config");
+        LOG.info("Loaded " + sharedLibs.size() + " shared libraries as config");
       }
     } else {
-      LOG.info(threadID + " No shared libraries loaded");
+      LOG.info(" No shared libraries loaded");
     }
     if (initConfigs.containsKey(SPIN_POLICY)) {
       spinPolicy = SpinPolicy.valueOf((String)initConfigs.get(SPIN_POLICY));
+      LOG.debug("Configuring spin policy to be " + spinPolicy);
     }
     try {
+      LOG.info("Launching the in-memory interpreter");
       JEP_INSTANCE = new Jep(config);
     } catch (JepException e) {
       throw new ApexPythonInterpreterException(e);
@@ -232,14 +235,16 @@ public class InterpreterThread implements Runnable
    */
   private Map<String,Boolean> runCommands(List<String> commands)
   {
+    LOG.debug("Executing run commands");
     Map<String,Boolean> resultsOfExecution = new HashMap<>();
     for (String aCommand : commands) {
+      LOG.debug("Executing command " + aCommand);
       try {
         resultsOfExecution.put(aCommand,JEP_INSTANCE.eval(aCommand));
       } catch (JepException e) {
         resultsOfExecution.put(aCommand,Boolean.FALSE);
         errorEncountered = true;
-        LOG.error(threadID + " Error while running command " + aCommand, e);
+        LOG.error("Error while running command " + aCommand, e);
         return resultsOfExecution;
       }
     }
@@ -259,19 +264,23 @@ public class InterpreterThread implements Runnable
    */
   private <T> T executeMethodCall(String nameOfGlobalMethod, List<Object> argsToGlobalMethod, Class<T> type)
   {
+    LOG.debug("Executing method call invocation");
     try {
       if ((argsToGlobalMethod != null) && (argsToGlobalMethod.size() > 0)) {
         List<Object> paramsToPass = argsToGlobalMethod;
         List<Object> modifiedParams = new ArrayList<>();
         for ( Object aMethodParam: argsToGlobalMethod) {
           if (argsToGlobalMethod.get(0) instanceof NDimensionalArray) {
+            LOG.debug(aMethodParam + " is of type NDimensional array and hence converting to JEP NDArray");
             modifiedParams.add(((NDimensionalArray)aMethodParam).toNDArray());
           } else {
             modifiedParams.add(aMethodParam);
           }
         }
+        LOG.debug("Executing method" + nameOfGlobalMethod + " with " + modifiedParams.size() + " parameters");
         return type.cast(JEP_INSTANCE.invoke(nameOfGlobalMethod,modifiedParams.toArray()));
       } else {
+        LOG.debug("Executing " + argsToGlobalMethod + " with no parameters");
         return type.cast(JEP_INSTANCE.invoke(nameOfGlobalMethod,new ArrayList<>().toArray()));
       }
     } catch (JepException e) {
@@ -283,17 +292,18 @@ public class InterpreterThread implements Runnable
 
   /***
    * Executes a python script which can be located in the path
-   * @param scriptName The path to the script
+   * @param pathToScript The path to the script
    * @return true if the script invocation was successfull or false otherwise
    */
-  private boolean executeScript(String scriptName)
+  private boolean executeScript(String pathToScript)
   {
+    LOG.debug("Executing script at path " + pathToScript);
     try {
-      JEP_INSTANCE.runScript(scriptName);
+      JEP_INSTANCE.runScript(pathToScript);
       return true;
     } catch (JepException e) {
       errorEncountered = true;
-      LOG.error(" Error while executing script " + scriptName, e);
+      LOG.error(" Error while executing script " + pathToScript, e);
     }
     return false;
   }
@@ -319,7 +329,7 @@ public class InterpreterThread implements Runnable
       boolean deleteExtractedVariable,Class<T> expectedReturnType)
   {
     T variableToReturn = null;
-    LOG.debug(threadID + " Params for eval passed in are " + command + " return type:" + expectedReturnType);
+    LOG.debug("Executing eval expression " + command + " with return type : " + expectedReturnType);
     try {
       for (String aKey : variableSubstituionParams.keySet()) {
         Object keyVal = variableSubstituionParams.get(aKey);
@@ -330,20 +340,21 @@ public class InterpreterThread implements Runnable
       }
     } catch (JepException e) {
       errorEncountered = true;
-      LOG.error(threadID + " Error while setting the params for eval expression " + command, e);
+      LOG.error("Error while setting the params for eval expression " + command, e);
       return null;
     }
     try {
       JEP_INSTANCE.eval(command);
     } catch (JepException e) {
       errorEncountered = true;
-      LOG.error(threadID + " Error while evaluating the expression " + command, e);
+      LOG.error("Error while evaluating the expression " + command, e);
       return null;
     }
     try {
       if (variableToExtract != null) {
         Object extractedVariable = JEP_INSTANCE.getValue(variableToExtract);
         if (extractedVariable instanceof NDArray) {
+          LOG.debug(" Return type is a NumPy Array. Hence converting to NDimensionalArray instance");
           NDArray ndArrayJepVal = (NDArray)extractedVariable;
           NDimensionalArray nDimArray = new NDimensionalArray();
           nDimArray.setData(ndArrayJepVal.getData());
@@ -360,11 +371,13 @@ public class InterpreterThread implements Runnable
           variableToReturn =  expectedReturnType.cast(extractedVariable);
         }
         if (deleteExtractedVariable) {
+          LOG.debug("Deleting the extracted variable from the Python interpreter space");
           JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + variableToExtract);
         }
       }
+      LOG.debug("Deleting all the variables from the python interpreter space ");
       for (String aKey: variableSubstituionParams.keySet()) {
-        LOG.debug(threadID + " deleting " + aKey);
+        LOG.debug("Deleting " + aKey);
         JEP_INSTANCE.eval(PYTHON_DEL_COMMAND + aKey);
       }
     } catch (JepException e) {
@@ -382,14 +395,14 @@ public class InterpreterThread implements Runnable
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
     isStopped = true;
-    LOG.info(threadID + " Attempting to close the interpreter thread");
+    LOG.info("Attempting to close the interpreter thread");
     try {
       JEP_INSTANCE.close();
     } catch (Exception e) {
-      LOG.error( threadID + " Error while stopping the interpreter thread ", e);
+      LOG.error("Error while stopping the interpreter thread ", e);
       throw new ApexPythonInterpreterException(e);
     }
-    LOG.info( threadID + " Interpreter closed");
+    LOG.info("Interpreter closed");
   }
 
   /***
@@ -397,7 +410,7 @@ public class InterpreterThread implements Runnable
    *  individual processing logic of the functionalities provided by the interpreter API methods.
    * @param <T> Java templating signature enforcement
    * @throws ApexPythonInterpreterException if an unrecognized command is issued.
-   * @throws InterruptedException
+   * @throws InterruptedException if interrupted while trying to wait for a request from request queue
    */
   private <T> void processCommand() throws ApexPythonInterpreterException, InterruptedException
   {
@@ -408,12 +421,14 @@ public class InterpreterThread implements Runnable
       LOG.debug("Processing command " + requestResponseHandle.getPythonInterpreterRequest().getCommandType());
       busyFlag = true;
       if (errorEncountered) {
+        LOG.debug("Error state detected from a previous command. Resetting state to  the previous" +
+            " state of the error");
         try {
           JEP_INSTANCE.eval(null);
           errorEncountered = false;
         } catch (JepException e) {
-          LOG.error( threadID + " Error while trying to clear the state of the interpreter due to previous command"
-           + " " + e.getMessage() , e);
+          LOG.error("Error while trying to clear the state of the interpreter due to previous command" +
+              " " + e.getMessage(), e);
         }
       }
       PythonInterpreterRequest<T> request =
@@ -463,7 +478,7 @@ public class InterpreterThread implements Runnable
       }
       requestResponseHandle.setRequestCompletionTime(System.currentTimeMillis());
       responseQueue.put(requestResponseHandle);
-      LOG.debug("Submitted the response " + response.getCommandStatus().size());
+      LOG.debug("Submitted the response and executed " + response.getCommandStatus().size() + " instances of command");
     }
     busyFlag = false;
   }
@@ -471,16 +486,19 @@ public class InterpreterThread implements Runnable
   @Override
   public void run()
   {
-    LOG.info("Starting the execution of Interpreter thread " + threadID );
+    LOG.info("Starting the execution of Interpreter thread ");
     if (JEP_INSTANCE == null) {
       try {
+        LOG.info("Initializaing the interpreter state");
         startInterpreter();
+        LOG.info("Successfully initialized the interpreter");
       } catch (ApexPythonInterpreterException e) {
         throw new RuntimeException(e);
       }
     }
     while (!isStopped) {
       if ( (requestQueue.isEmpty()) && (spinPolicy == SpinPolicy.SLEEP)) {
+        LOG.debug("Sleeping the current thread as there are no more requests to process from the queue");
         try {
           Thread.sleep(0L,100);
           continue;

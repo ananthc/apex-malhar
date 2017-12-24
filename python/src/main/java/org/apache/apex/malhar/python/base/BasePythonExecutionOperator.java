@@ -127,6 +127,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
       stragglersPort.emit(aReqResponse);
     }
   }
+
   protected ApexPythonEngine initApexPythonEngineImpl(Context.OperatorContext context)
   {
     JepPythonEngine jepPythonEngine = new JepPythonEngine("" + context.getId(),workerThreadPoolSize);
