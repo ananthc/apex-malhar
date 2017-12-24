@@ -135,10 +135,10 @@ public class InterpreterWrapper
    * @param req The request that contains the timeout SLAs
    * @param <T> Java templating signature
    * @return A response to the original incoming request, null if the response did not arrive within given SLA.
-   * @throws ApexPythonInterpreterException
+   * @throws InterruptedException if interrupted while waiting for the response queue.
    */
   public <T> PythonRequestResponse<T> processRequest(PythonRequestResponse requestResponse,
-      PythonInterpreterRequest<T> req) throws ApexPythonInterpreterException
+      PythonInterpreterRequest<T> req) throws InterruptedException
   {
     List<PythonRequestResponse> drainedResults = new ArrayList<>();
     PythonRequestResponse currentRequestWithResponse = null;
@@ -147,12 +147,8 @@ public class InterpreterWrapper
     // drain any previous responses that were returned while the Apex operator is processing
     responseQueue.drainTo(drainedResults);
     LOG.debug("Draining previous request responses if any " + drainedResults.size());
-    try {
-      for (PythonRequestResponse oldRequestResponse : drainedResults) {
-        delayedResponsesQueue.put(oldRequestResponse);
-      }
-    } catch (InterruptedException ie) {
-      throw new RuntimeException(ie);
+    for (PythonRequestResponse oldRequestResponse : drainedResults) {
+      delayedResponsesQueue.put(oldRequestResponse);
     }
     // We first set a timer to see how long it actually it took for the response to arrive.
     // It is possible that a response arrived due to a previous request and hence this need for the timer
@@ -160,68 +156,110 @@ public class InterpreterWrapper
     long currentStart = System.nanoTime();
     long timeLeftToCompleteProcessing = timeOutInNanos;
     while ( (!isCurrentRequestProcessed) && ( timeLeftToCompleteProcessing > 0 )) {
-      try {
-        LOG.debug("Submitting the interpreter Request with time out in nanos as " + timeOutInNanos);
-        requestQueue.put(requestResponse);
-        // ensures we are blocked till the time limit
-        currentRequestWithResponse = responseQueue.poll(timeOutInNanos, TimeUnit.NANOSECONDS);
-        timeLeftToCompleteProcessing = timeLeftToCompleteProcessing - ( System.nanoTime() - currentStart );
-        currentStart = System.nanoTime();
-        if (currentRequestWithResponse != null) {
-          if ( (requestResponse.getRequestId() == currentRequestWithResponse.getRequestId()) &&
-              (requestResponse.getWindowId() == currentRequestWithResponse.getWindowId()) ) {
-            isCurrentRequestProcessed = true;
-            break;
-          } else {
-            delayedResponsesQueue.put(currentRequestWithResponse);
-          }
+      LOG.debug("Submitting the interpreter Request with time out in nanos as " + timeOutInNanos);
+      requestQueue.put(requestResponse);
+      // ensures we are blocked till the time limit
+      currentRequestWithResponse = responseQueue.poll(timeOutInNanos, TimeUnit.NANOSECONDS);
+      timeLeftToCompleteProcessing = timeLeftToCompleteProcessing - ( System.nanoTime() - currentStart );
+      currentStart = System.nanoTime();
+      if (currentRequestWithResponse != null) {
+        if ( (requestResponse.getRequestId() == currentRequestWithResponse.getRequestId()) &&
+            (requestResponse.getWindowId() == currentRequestWithResponse.getWindowId()) ) {
+          isCurrentRequestProcessed = true;
+          break;
         } else {
-          LOG.debug(" Processing of request could not be completed on time");
+          delayedResponsesQueue.put(currentRequestWithResponse);
         }
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
+      } else {
+        LOG.debug(" Processing of request could not be completed on time");
       }
     }
     if (isCurrentRequestProcessed) {
+      LOG.debug("Response could be processed within time SLA");
       return currentRequestWithResponse;
     } else {
+      LOG.debug("Response could not be processed within time SLA");
       return null;
     }
   }
 
+  /***
+   * Implements the time based SLA over the interpreters run commands implementation. See
+   *  {@link InterpreterThread#runCommands(List)}
+   * @param windowId The window ID as provided by the Apex operator. Used for selecting a worker from the worker pool.
+   * @param requestId The request ID as provided by the Apex operator. Used for selecting a worker from the worker pool.
+   * @param request The payload of the request
+   * @return A response object with the results of the execution. Null if the request could not be processed on time.
+   * @throws InterruptedException if interrupted while processing the wait for request or writing to delayed response
+   *  queue
+   */
   public PythonRequestResponse<Void> runCommands(long windowId, long requestId,
-      PythonInterpreterRequest<Void> request) throws ApexPythonInterpreterException
+      PythonInterpreterRequest<Void> request) throws InterruptedException
   {
     request.setCommandType(PythonCommandType.GENERIC_COMMANDS);
     PythonRequestResponse requestResponse = buildRequestRespObject(request,windowId,requestId);
     return processRequest(requestResponse,request);
   }
 
+  /***
+   * Implements the time based SLA over the interpreters run commands implementation. See
+   *  {@link InterpreterThread#executeMethodCall(String, List, Class)}
+   * @param windowId The window ID as provided by the Apex operator. Used for selecting a worker from the worker pool.
+   * @param requestId The request ID as provided by the Apex operator. Used for selecting a worker from the worker pool.
+   * @param request The payload of the request
+   * @return A response object with the results of the execution. Null if the request could not be processed on time.
+   * @throws InterruptedException if interrupted while processing the wait for request or writing to delayed response
+   *  queue
+   */
   public <T> PythonRequestResponse<T> executeMethodCall(long windowId, long requestId,
-      PythonInterpreterRequest<T> request)
-    throws ApexPythonInterpreterException
+      PythonInterpreterRequest<T> request)  throws InterruptedException
   {
     request.setCommandType(PythonCommandType.METHOD_INVOCATION_COMMAND);
     PythonRequestResponse requestResponse = buildRequestRespObject(request, windowId,requestId);
     return processRequest(requestResponse,request);
   }
 
+  /***
+   * Implements the time based SLA over the interpreters run commands implementation. See
+   *  {@link InterpreterThread#executeScript(String)}
+   * @param windowId The window ID as provided by the Apex operator. Used for selecting a worker from the worker pool.
+   * @param requestId The request ID as provided by the Apex operator. Used for selecting a worker from the worker pool.
+   * @param request The payload of the request
+   * @return A response object with the results of the execution. Null if the request could not be processed on time.
+   * @throws InterruptedException if interrupted while processing the wait for request or writing to delayed response
+   *  queue
+   */
   public PythonRequestResponse<Void> executeScript(long windowId,long requestId,PythonInterpreterRequest<Void> request)
-    throws ApexPythonInterpreterException
+      throws InterruptedException
   {
     request.setCommandType(PythonCommandType.SCRIPT_COMMAND);
     PythonRequestResponse<Void> requestResponse = buildRequestRespObject(request, windowId,requestId);
     return processRequest(requestResponse,request);
   }
 
+
+  /***
+   * Implements the time based SLA over the interpreters run commands implementation. See
+   *  {@link InterpreterThread#eval(String, String, Map, boolean, Class)}
+   * @param windowId The window ID as provided by the Apex operator. Used for selecting a worker from the worker pool.
+   * @param requestId The request ID as provided by the Apex operator. Used for selecting a worker from the worker pool.
+   * @param request The payload of the request
+   * @return A response object with the results of the execution. Null if the request could not be processed on time.
+   * @throws InterruptedException if interrupted while processing the wait for request or writing to delayed response
+   *  queue
+   */
   public <T> PythonRequestResponse<T> eval(long windowId, long requestId,PythonInterpreterRequest<T> request)
-    throws ApexPythonInterpreterException
+      throws InterruptedException
   {
     request.setCommandType(PythonCommandType.EVAL_COMMAND);
     PythonRequestResponse<T> requestResponse = buildRequestRespObject(request,windowId,requestId);
     return processRequest(requestResponse,request);
   }
 
+  /***
+   * Stops the interpreter
+   * @throws ApexPythonInterpreterException if error while stopping the interpreter
+   */
   public void stopInterpreter() throws ApexPythonInterpreterException
   {
     interpreterThread.setStopped(true);
