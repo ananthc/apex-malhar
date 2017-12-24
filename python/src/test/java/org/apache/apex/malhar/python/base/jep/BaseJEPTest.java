@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
+import org.apache.apex.malhar.python.base.PythonInterpreterConfig;
 import org.apache.apex.malhar.python.base.requestresponse.EvalCommandRequestPayload;
 import org.apache.apex.malhar.python.base.requestresponse.GenericCommandsRequestPayload;
 import org.apache.apex.malhar.python.base.requestresponse.MethodCallRequestPayload;
@@ -76,7 +77,7 @@ public class BaseJEPTest extends BasePythonTest
         if (!JEP_INITIALIZED) {
           // Interpreter for thread based tests
           pythonEngineThread = new InterpreterThread(requestQueue,responseQueue,"unittests-1");
-          pythonEngineThread.preInitInterpreter(new HashMap<String,Object>());
+          pythonEngineThread.preInitInterpreter(new HashMap<PythonInterpreterConfig,Object>());
           executorService.submit(pythonEngineThread);
 
           // interpreter wrapper for wrapper based tests
@@ -85,7 +86,7 @@ public class BaseJEPTest extends BasePythonTest
 
           // JEP python engine tests
           jepPythonEngine = new JepPythonEngine("unit-tests-jeppythonengine",5);
-          jepPythonEngine.preInitInterpreter(new HashMap<String,Object>());
+          jepPythonEngine.preInitInterpreter(new HashMap<PythonInterpreterConfig,Object>());
           jepPythonEngine.startInterpreter();
           JEP_INITIALIZED = true;
         }

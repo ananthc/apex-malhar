@@ -30,6 +30,7 @@ import org.junit.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.apex.malhar.python.base.PythonInterpreterConfig;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
@@ -151,7 +152,7 @@ public class JepPythonEngineTest extends BaseJEPTest
     historyOfCommands.add(aHistoryCommand);
     pythonEngineForPostInit.setCommandHistory(historyOfCommands);
 
-    pythonEngineForPostInit.preInitInterpreter(new HashMap<String,Object>());
+    pythonEngineForPostInit.preInitInterpreter(new HashMap<PythonInterpreterConfig,Object>());
     pythonEngineForPostInit.startInterpreter();
 
     pythonEngineForPostInit.postStartInterpreter();

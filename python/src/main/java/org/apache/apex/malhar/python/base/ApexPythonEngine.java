@@ -31,7 +31,7 @@ import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
  */
 public interface ApexPythonEngine
 {
-  void preInitInterpreter(Map<String,Object> preInitConfigs) throws ApexPythonInterpreterException;
+  void preInitInterpreter(Map<PythonInterpreterConfig,Object> preInitConfigs) throws ApexPythonInterpreterException;
 
   void startInterpreter() throws ApexPythonInterpreterException;
 

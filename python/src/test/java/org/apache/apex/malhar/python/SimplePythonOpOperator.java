@@ -29,8 +29,8 @@ import java.util.concurrent.TimeUnit;
 import org.apache.apex.malhar.python.base.ApexPythonEngine;
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
 import org.apache.apex.malhar.python.base.BasePythonExecutionOperator;
+import org.apache.apex.malhar.python.base.PythonInterpreterConfig;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
-import org.apache.apex.malhar.python.base.jep.InterpreterThread;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import org.apache.apex.malhar.python.base.util.NDimensionalArray;
@@ -41,12 +41,12 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
   private Map<String,PythonRequestResponse<NDimensionalArray>> lastKnownResponse;
 
   @Override
-  public Map<String, Object> getPreInitConfigurations()
+  public Map<PythonInterpreterConfig, Object> getPreInitConfigurations()
   {
-    Map<String,Object> preInitConfigs = new HashMap<>();
+    Map<PythonInterpreterConfig,Object> preInitConfigs = new HashMap<>();
     Set<String> sharedLibsList = new HashSet<>();
     sharedLibsList.add("numpy");
-    preInitConfigs.put(InterpreterThread.PYTHON_SHARED_LIBS, sharedLibsList);
+    preInitConfigs.put(PythonInterpreterConfig.PYTHON_SHARED_LIBS, sharedLibsList);
     return preInitConfigs;
   }
 
@@ -59,7 +59,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     evalParams.put("floatArrayToAdd",input.getNumpyFloatArray());
     String evalCommand = "intMatrix = np.add(intMatrix,intArrayToAdd)";
     PythonInterpreterRequest<NDimensionalArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
-        evalCommand,evalParams,"intMatrix",false, 10,
+        evalCommand,evalParams,"intMatrix",false, 20,
         TimeUnit.MILLISECONDS, NDimensionalArray.class);
     lastKnownResponse = pythonEngineRef.eval(
         WorkerExecutionMode.ANY_WORKER,currentWindowId,requestIdForThisWindow,request);

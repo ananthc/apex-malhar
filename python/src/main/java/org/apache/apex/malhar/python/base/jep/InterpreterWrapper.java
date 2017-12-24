@@ -31,6 +31,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
+import org.apache.apex.malhar.python.base.PythonInterpreterConfig;
 import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterResponse;
@@ -87,10 +88,11 @@ public class InterpreterWrapper
 
   /**
    * Invokes the interpreter thread pre initialization logic
-   * @param preInitConfigs A set of key value pairs that are used to initialize the actual interpreter
+   * @param preInitConfigs A set of key value pairs that are used to initialize the actual interpreter. See constants
+   *                       defined in {@link InterpreterThread} for a list of keys available
    * @throws ApexPythonInterpreterException if the pre-initialization logic could not be executed for whatever reasons
    */
-  public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
+  public void preInitInterpreter(Map<PythonInterpreterConfig, Object> preInitConfigs) throws ApexPythonInterpreterException
   {
     interpreterThread.preInitInterpreter(preInitConfigs);
   }

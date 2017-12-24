@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
+import org.apache.apex.malhar.python.base.PythonInterpreterConfig;
 import org.apache.apex.malhar.python.base.requestresponse.EvalCommandRequestPayload;
 import org.apache.apex.malhar.python.base.requestresponse.MethodCallRequestPayload;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
@@ -42,6 +43,11 @@ import jep.Jep;
 import jep.JepConfig;
 import jep.JepException;
 import jep.NDArray;
+
+import static org.apache.apex.malhar.python.base.PythonInterpreterConfig.PYTHON_INCLUDE_PATHS;
+import static org.apache.apex.malhar.python.base.PythonInterpreterConfig.PYTHON_SHARED_LIBS;
+import static org.apache.apex.malhar.python.base.PythonInterpreterConfig.SLEEP_TIME_MS_IN_CASE_OF_NO_REQUESTS;
+import static org.apache.apex.malhar.python.base.PythonInterpreterConfig.SPIN_POLICY;
 
 /**
  * <p>
@@ -96,15 +102,6 @@ public class InterpreterThread implements Runnable
   /* The string command which will be used to delete python variables after they are used. */
   public static final String PYTHON_DEL_COMMAND = "del ";
 
-  public static final String PYTHON_INCLUDE_PATHS = "PYTHON_INCLUDE_PATHS";
-
-  public static final String PYTHON_SHARED_LIBS = "PYTHON_SHARED_LIBS";
-
-  public static final String SPIN_POLICY = "SPIN_POLICY";
-
-  /* Time the thread sleeps in case there are no requests in the queue */
-  public static final String SLEEP_TIME_MS_IN_CASE_OF_NO_REQUESTS = "SLEEP_TIME_MS_IN_CASE_OF_NO_REQUESTS";
-
   public transient Jep JEP_INSTANCE;
 
   /* Used by the operator thread or other threads to mark the stopping of processing of the interpreter command loop */
@@ -129,10 +126,10 @@ public class InterpreterThread implements Runnable
   private SpinPolicy spinPolicy = SpinPolicy.SLEEP;
 
   /* Holds the configs that are used to initialize the interpreter thread. Examples of config are shared libraries and
-  include paths for the interpreter. The key is one of the constants defined in this class and value is specific to the
-  config type that is being set.
+  include paths for the interpreter. The key is one of the constants defined in PythonInterpreterConfig and value
+    is specific to the config type that is being set.
    */
-  private Map<String,Object> initConfigs = new HashMap<>();
+  private Map<PythonInterpreterConfig,Object> initConfigs = new HashMap<>();
 
   /* Used as a flag to denote an error situation in the interpreter so that the next set of commands to run
    *  an empty/null eval expression to clear any erraneous state  */
@@ -182,7 +179,8 @@ public class InterpreterThread implements Runnable
    * @param preInitConfigs
    * @throws ApexPythonInterpreterException
    */
-  public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
+  public void preInitInterpreter(Map<PythonInterpreterConfig, Object> preInitConfigs)
+      throws ApexPythonInterpreterException
   {
     initConfigs.putAll(preInitConfigs);
   }
@@ -590,12 +588,12 @@ public class InterpreterThread implements Runnable
     this.responseQueue = responseQueue;
   }
 
-  public Map<String, Object> getInitConfigs()
+  public Map<PythonInterpreterConfig, Object> getInitConfigs()
   {
     return initConfigs;
   }
 
-  public void setInitConfigs(Map<String, Object> initConfigs)
+  public void setInitConfigs(Map<PythonInterpreterConfig, Object> initConfigs)
   {
     this.initConfigs = initConfigs;
   }

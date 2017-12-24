@@ -157,7 +157,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     super.setup(context);
     apexPythonEngine = initApexPythonEngineImpl(context);
     try {
-      Map<String,Object> preInitConfigurations = getPreInitConfigurations();
+      Map<PythonInterpreterConfig,Object> preInitConfigurations = getPreInitConfigurations();
       apexPythonEngine.preInitInterpreter(preInitConfigurations);
       apexPythonEngine.startInterpreter();
       apexPythonEngine.postStartInterpreter();
@@ -276,7 +276,11 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
     return null;
   }
 
-  public Map<String,Object> getPreInitConfigurations()
+  /***
+   * See constants defined in {@link PythonInterpreterConfig} for a list of keys available
+   * @return
+   */
+  public Map<PythonInterpreterConfig,Object> getPreInitConfigurations()
   {
     return new HashMap<>();
   }

@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.apex.malhar.python.base.ApexPythonEngine;
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
+import org.apache.apex.malhar.python.base.PythonInterpreterConfig;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
@@ -41,6 +42,14 @@ import com.google.common.primitives.Ints;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+/***
+ * <p>Implements the {@link ApexPythonEngine} interface by using the JEP ( Java Embedded Python ) engine. It is an
+ *  in-memory interpreter and has the following characteristics:
+ *  <ol>
+ *    <li></li>
+ *  </ol>
+ * </p>
+ */
 public class JepPythonEngine implements ApexPythonEngine
 {
   private static final Logger LOG = LoggerFactory.getLogger(JepPythonEngine.class);
@@ -64,7 +73,7 @@ public class JepPythonEngine implements ApexPythonEngine
 
   private List<InterpreterWrapper> workers = new ArrayList<>();
 
-  private Map<String, Object> preInitConfigs;
+  private Map<PythonInterpreterConfig, Object> preInitConfigs;
 
   private long numStarvedReturns = 0;
 
@@ -115,8 +124,15 @@ public class JepPythonEngine implements ApexPythonEngine
     }
   }
 
+  /***
+   *
+   * @param preInitConfigs See constants
+   *                       defined in {@link PythonInterpreterConfig} for a list of keys available
+   * @throws ApexPythonInterpreterException
+   */
   @Override
-  public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
+  public void preInitInterpreter(Map<PythonInterpreterConfig, Object> preInitConfigs)
+      throws ApexPythonInterpreterException
   {
     this.preInitConfigs = preInitConfigs;
   }
