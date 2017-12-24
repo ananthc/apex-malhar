@@ -39,29 +39,43 @@ import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import com.conversantmedia.util.concurrent.DisruptorBlockingQueue;
 import com.conversantmedia.util.concurrent.SpinPolicy;
 
-
+/***
+ * Wraps around the interpreter thread so that time bound SLAs can be implemented for python based execution
+ * This class primarily implements the time constraints by utilizing the {@link InterpreterThread} class and using
+ *  a Disruptor blocking queue for high throughput. Utilizes an executor service to implement the timing SLAs.
+ */
 public class InterpreterWrapper
 {
   private static final Logger LOG = LoggerFactory.getLogger(InterpreterWrapper.class);
 
+  /* Reference to the interpreter thread which executes requests in memory  */
   private transient InterpreterThread interpreterThread;
 
+  /* Spin policy to use  for the disruptor implementation */
   private transient SpinPolicy cpuSpinPolicyForWaitingInBuffer = SpinPolicy.WAITING;
 
   private int bufferCapacity = 16; // Represents the number of workers and response queue sizes
 
   private String interpreterId;
 
-  private Future<?> handleToJepRunner;
+  /* Represents the actual thread instance running under the Executor service  */
+  private transient Future<?> handleToJepRunner;
 
   private ExecutorService executorService = Executors.newSingleThreadExecutor();
 
   private transient BlockingQueue<PythonRequestResponse> requestQueue;
   private transient BlockingQueue<PythonRequestResponse> responseQueue;
 
+  /* Represents the queue into which all of the stragglers will be pushed into by the interpreter thread */
   private transient volatile BlockingQueue<PythonRequestResponse> delayedResponsesQueue;
 
-
+  /***
+   * Constructs the interpreter wrapper instance.
+   * @param interpreterId A string that can be used to represent the interpreter id that is passed onto the actual
+   *                      thread that is executing the commands
+   *
+   * @param delayedResponsesQueueRef The queue into which all of the straggler responses will end in
+   */
   public InterpreterWrapper(String interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef)
   {
     delayedResponsesQueue = delayedResponsesQueueRef;
@@ -71,18 +85,37 @@ public class InterpreterWrapper
     interpreterThread = new InterpreterThread(requestQueue,responseQueue,interpreterId);
   }
 
+  /**
+   * Invokes the interpreter thread pre initialization logic
+   * @param preInitConfigs A set of key value pairs that are used to initialize the actual interpreter
+   * @throws ApexPythonInterpreterException if the pre-initialization logic could not be executed for whatever reasons
+   */
   public void preInitInterpreter(Map<String, Object> preInitConfigs) throws ApexPythonInterpreterException
   {
     interpreterThread.preInitInterpreter(preInitConfigs);
   }
 
+  /***
+   * Starts the actual interpreter thread to which this class is wrapping around by using an executor service
+   * @throws ApexPythonInterpreterException
+   */
   public void startInterpreter() throws ApexPythonInterpreterException
   {
     handleToJepRunner = executorService.submit(interpreterThread);
   }
 
+  /***
+   * Builds a response object for the incoming request object.
+   * @param req Represents the incoming request for which response needs to be generated for.
+   * @param windowId The Operator window ID ( used to choose the interpreter thread while choosing to execute the
+   *                  logic from a pool of worker threads )
+   * @param requestId The request ID perhaps coming from the base python operator. Only used to optimize the right
+   *                  interpreter lookup from a pool of worker interpreter threads.
+   * @param <T> The template of the return type
+   * @return An object of type {@link PythonRequestResponse} is returned which encompasses both request and response.
+   */
   private <T> PythonRequestResponse<T> buildRequestRespObject(PythonInterpreterRequest<T> req,
-      long windowId,long requestId) throws ApexPythonInterpreterException
+      long windowId,long requestId)
   {
     PythonRequestResponse<T> requestResponse = new PythonRequestResponse();
     requestResponse.setPythonInterpreterRequest(req);
@@ -94,6 +127,16 @@ public class InterpreterWrapper
     return requestResponse;
   }
 
+  /***
+   * Handles the common logic that is common across all methods of invocation of the in-memory interpreter. Some common
+   *  logic includes draining any stragglers, matching the request to the any of the responses that arrive in the
+   *   response queue possibly due to previous requests
+   * @param requestResponse The wrapper object into which
+   * @param req The request that contains the timeout SLAs
+   * @param <T> Java templating signature
+   * @return A response to the original incoming request, null if the response did not arrive within given SLA.
+   * @throws ApexPythonInterpreterException
+   */
   public <T> PythonRequestResponse<T> processRequest(PythonRequestResponse requestResponse,
       PythonInterpreterRequest<T> req) throws ApexPythonInterpreterException
   {
