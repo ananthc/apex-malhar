@@ -31,6 +31,7 @@ import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
 import org.apache.apex.malhar.python.base.BasePythonExecutionOperator;
 import org.apache.apex.malhar.python.base.PythonInterpreterConfig;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
+import org.apache.apex.malhar.python.base.jep.SpinPolicy;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 import org.apache.apex.malhar.python.base.util.NDimensionalArray;
@@ -47,6 +48,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     Set<String> sharedLibsList = new HashSet<>();
     sharedLibsList.add("numpy");
     preInitConfigs.put(PythonInterpreterConfig.PYTHON_SHARED_LIBS, sharedLibsList);
+    preInitConfigs.put(PythonInterpreterConfig.SPIN_POLICY, "" + SpinPolicy.BUSY_SPIN);
     return preInitConfigs;
   }
 
@@ -57,7 +59,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     Map<String,Object> evalParams = new HashMap<>();
     evalParams.put("intArrayToAdd",input.getNumpyIntArray());
     evalParams.put("floatArrayToAdd",input.getNumpyFloatArray());
-    String evalCommand = "intMatrix = np.add(intMatrix,intArrayToAdd)";
+    String evalCommand = "np.add(intMatrix,intArrayToAdd)";
     PythonInterpreterRequest<NDimensionalArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
         evalCommand,evalParams,"intMatrix",false, 20,
         TimeUnit.MILLISECONDS, NDimensionalArray.class);
@@ -75,8 +77,8 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     List<String> commandsToRun = new ArrayList<>();
     commandsToRun.add("import sys");
     commandsToRun.add("import numpy as np");
-    commandsToRun.add("intMatrix = np.zeros((2,2),dtype=int)");
-    commandsToRun.add("floatMatrix = np.zeros((2,2),dtype=float)");
+    commandsToRun.add("intMatrix = np.ones((2,2),dtype=int)");
+    commandsToRun.add("floatMatrix = np.ones((2,2),dtype=float)");
     pythonEngineRef.runCommands(WorkerExecutionMode.ALL_WORKERS,0L,0L,
         PythonRequestResponseUtil.buildRequestObjectForRunCommands(commandsToRun,200, TimeUnit.MILLISECONDS));
   }

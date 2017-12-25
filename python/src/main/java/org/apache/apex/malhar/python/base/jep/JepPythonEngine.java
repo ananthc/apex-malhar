@@ -32,6 +32,7 @@ import org.apache.apex.malhar.python.base.ApexPythonEngine;
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
 import org.apache.apex.malhar.python.base.PythonInterpreterConfig;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
+import org.apache.apex.malhar.python.base.partitioner.ThreadStarvationBasedPartitioner;
 import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
@@ -82,14 +83,30 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * <p> Note that the engine implementation can be used independent of an Operator i.e. as a utility stack if need be.
  *  Some of the API signatures need a window ID and request ID but they do not necessarily mean that the API
  *   signatures are bound to an operator lifecycle. These parameters are used for efficient thread usage only and
- *    the API only needs a monotonically increasing number in true sense.</p>
+ *    the API only needs a monotonically increasing number in true sense.
+ * </p>
+ *
+ * <p>
+ *   JEP needs to be installed on all of the YARN nodes prior to the use of the JEP engine until docker support is
+ *    available for Apex. Virtual environments are not supported yet. If multiple versions of python are present
+ *     on the YARN nodes, ensure  the JVM option java.library.path is pointing to the right version of JEP which in
+ *      turn will ensure the right version of python to be used at runtime.
+ * </p>
+ *
+ * <p>
+ *   JEPPythonEngine works on the concept of a worker pool. The engine maintains a configurable number of workers and
+ *    each worker has a dedicated request and response queue. While this class is responsible for choosing the
+ *    right worker from the pool of workers for a given request , the {@link InterpreterWrapper} class is responsible
+ *     for maintaining the time bound SLAs.
+ * </p>
+ *
  */
 public class JepPythonEngine implements ApexPythonEngine
 {
   private static final Logger LOG = LoggerFactory.getLogger(JepPythonEngine.class);
 
   /* Size of the worker pool */
-  private int numWorkerThreads = 2;
+  private int numWorkerThreads = 3;
 
   /* A name that can be used while logging messages and also used to set thread names */
   private String threadGroupName;
@@ -121,6 +138,11 @@ public class JepPythonEngine implements ApexPythonEngine
 
   private long numStarvedReturns = 0;
 
+  /***
+   * Created the JEP Python engine instance but does not start the interpreters yet
+   * @param threadGroupName A name that represents all the workers in this thread
+   * @param numWorkerThreads Number of workers in the work pool
+   */
   public JepPythonEngine(String threadGroupName,int numWorkerThreads)
   {
     this.numWorkerThreads = numWorkerThreads;
@@ -138,6 +160,12 @@ public class JepPythonEngine implements ApexPythonEngine
     }
   }
 
+  /***
+   * Used to select the right worker from the work pool. The goal is to round robin the workers as far as possible.
+   *  Factors like busy workers can mean that the next available worker is chosen
+   * @param requestId Used to round robin the requests. Need not necessarily mean only an operator can use this engine.
+   * @return A worker from the worker pool. Null if all workers are busy.
+   */
   protected InterpreterWrapper selectWorkerForCurrentCall(long requestId)
   {
     int slotToLookFor = Ints.saturatedCast(requestId) % numWorkerThreads;
@@ -176,7 +204,7 @@ public class JepPythonEngine implements ApexPythonEngine
    */
   @Override
   public void preInitInterpreter(Map<PythonInterpreterConfig, Object> preInitConfigs)
-      throws ApexPythonInterpreterException
+    throws ApexPythonInterpreterException
   {
     this.preInitConfigs = preInitConfigs;
   }

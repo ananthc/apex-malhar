@@ -27,11 +27,14 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.apex.malhar.python.base.jep.InterpreterThread;
 import org.apache.apex.malhar.python.base.jep.JepPythonEngine;
+import org.apache.apex.malhar.python.base.jep.SpinPolicy;
 import org.apache.apex.malhar.python.base.partitioner.AbstractPythonExecutionPartitioner;
 import org.apache.apex.malhar.python.base.partitioner.PythonExecutionPartitionerType;
 import org.apache.apex.malhar.python.base.partitioner.ThreadStarvationBasedPartitioner;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
+import org.apache.apex.malhar.python.base.util.NDimensionalArray;
 
 import com.datatorrent.api.AutoMetric;
 import com.datatorrent.api.Context;
@@ -43,45 +46,118 @@ import com.datatorrent.api.StatsListener;
 import com.datatorrent.api.annotation.InputPortFieldAnnotation;
 import com.datatorrent.common.util.BaseOperator;
 
-public abstract class BasePythonExecutionOperator<T> extends BaseOperator implements
+/***
+ * <p>The operator provides a mechanism to execute arbitrary python code by using the {@link JepPythonEngine} as its
+ *  default engine.</p>
+ *
+ * <p>See {@link JepPythonEngine} and {@link InterpreterThread} for more detailed javadocs about the interpreter
+ *  itself and the API patterns possible through this engine</p>
+ *
+ * <p>Note that the JVM option of the library path needs to be set to a value which contains the JEP dynamic library.
+ *  For example, -Djava.library.path=/usr/local/lib/python3.5/site-packages/jep assuming that the JEP library is
+ *   installed at the above location
+ * </p>
+ *
+ * <p>If using CPython libraries which involve global variables, please use the
+ *  {@link PythonInterpreterConfig#PYTHON_SHARED_LIBS} as one of the keys to specify this library as a shared library.
+ *  Note that the interpreter configs are passed via {@link ApexPythonEngine#preInitInterpreter(Map)} method.
+ *  Overrriding the {@link BasePythonExecutionOperator#getPreInitConfigurations()} and specifying the configs can
+ *   help in specifying the shared libraries that are loaded by all the interpreter threads accordingly.</p>
+ *
+ * <p>The operator comes with the following limitations
+ * <ol>
+ *   <li>Cannot be used in THREAD LOCAL MODE where the downstream operator is using a different version of the
+ *    the python interpreter</li>
+ *   <li>In certain use cases the operator cannot be used CONTAINER LOCAL MODE when there are global defs in the
+ *    CPython library that is being used and the downstream operator depends on those globals ( even though downstream
+ *     is using the same python version of the upstream operator</li>
+ *   <li>Only CPython libraries are supported and uses the JNI mechanisms to use the CPython libraries</li>
+ *   <li>Complex data types cannot be automatically translated to the Python interpreter space. Current
+ *    workaround involves copying the basic types and build the complex type using python code and functionality
+ *     provided by the {@link JepPythonEngine} </li>
+ *   <li>Numpy arrays need to be specified as {@link NDimensionalArray} and the engine automatically translates them
+ *    to a Numpy array. See {@link NDimensionalArray#toNDArray()} for more details</li>
+ * </ol>
+ * </p>
+ *  <p>
+ *    Shared libraries enable sharing of global modules across interpreter workers in a work pool.
+ *     The following snippet of code illustrated the registering of numpy as a shared module.
+ *     <code>
+ *       Map<PythonInterpreterConfig,Object> preInitConfigs = new HashMap<>();
+ *       Set<String> sharedLibsList = new HashSet<>();
+ *       sharedLibsList.add("numpy");
+ *       preInitConfigs.put(PythonInterpreterConfig.PYTHON_SHARED_LIBS, sharedLibsList);
+ *     </code>
+ *     Passing the above config in overriding {@link BasePythonExecutionOperator#getPreInitConfigurations()} will help
+ *      in using modules like numpy which have global shared variables.
+ *  </p>
+ *
+ *  <p>For very low time SLA requirements, it is encouraged to set the spin policy to be busy wait using the
+ *   following configuration snippet for the JEP engine
+ *   <code>
+ *       Map<PythonInterpreterConfig,Object> preInitConfigs = new HashMap<>();
+ *       preInitConfigs.put(PythonInterpreterConfig.SPIN_POLICY, ""+ SpinPolicy.BUSY_SPIN);
+ *   </code>
+ *   This mapping can be set by overriding {@link BasePythonExecutionOperator#getPreInitConfigurations()}. For more
+ *    details refer {@link SpinPolicy}.
+ *  </p>
+ * @param <T> Represents the incoming tuple.
+ */
+public class BasePythonExecutionOperator<T> extends BaseOperator implements
     Operator.ActivationListener<Context.OperatorContext>, Partitioner<BasePythonExecutionOperator>,
     Operator.CheckpointNotificationListener, StatsListener, Operator.IdleTimeHandler
 {
   private static final transient Logger LOG = LoggerFactory.getLogger(BasePythonExecutionOperator.class);
 
+  /*  a rolling counter for all requests in the current window */
   protected transient long requestIdForThisWindow = 0;
 
   protected transient long currentWindowId = 0;
 
   private long numberOfRequestsProcessedPerCheckpoint = 0;
 
+  /*** Configuration used to decide if a new operator needs to be spawned while dynamic partitioning planning is taking
+   place. This represents the threshold for percent number of times the requests were starved when no threads were
+    available to process a request. See {@link ThreadStarvationBasedPartitioner}
+   */
   private float starvationPercentBeforeSpawningNewInstance = 30;
 
   private transient ApexPythonEngine apexPythonEngine;
 
+  /*** number of workers in the worker pool */
   private int workerThreadPoolSize = 3;
 
+  /*** Time for which the python engine will sleep to allow for the interpreter will sleep before worker can be used
+   *  for executing work requests.
+   */
   private long sleepTimeDuringInterpreterBoot = 2000L;
 
   private PythonExecutionPartitionerType partitionerType = PythonExecutionPartitionerType.THREAD_STARVATION_BASED;
 
   private transient AbstractPythonExecutionPartitioner partitioner;
 
+  /*** port into which the stragglers will be emitted */
   public final transient DefaultOutputPort<PythonRequestResponse> stragglersPort =
       new com.datatorrent.api.DefaultOutputPort<>();
 
+  /*** Port into which the normal execution path will push the results into */
   public final transient DefaultOutputPort<PythonRequestResponse> outputPort =
       new com.datatorrent.api.DefaultOutputPort<>();
 
+  /*** Port into which all error tuples will be emitted into */
   public final transient DefaultOutputPort<T> errorPort = new com.datatorrent.api.DefaultOutputPort<>();
 
   private Object objectForLocking = new Object();
 
+  /*** A counter that is used to track how many times a request could not be serviced within a given window. Used
+   by the {@link ThreadStarvationBasedPartitioner} to spawn a new instance of the operator based on a configuration
+   threshold
+   */
   @AutoMetric
-  private long numStarvedReturns = 0;
+  private long numStarvedReturnsPerCheckpoint = 0;
 
   @AutoMetric
-  private long numNullResponses = 0;
+  private long numNullResponsesPerWindow = 0;
 
   private List<PythonRequestResponse> accumulatedCommandHistory = new ArrayList<>();
 
@@ -98,7 +174,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
         if ( result != null) {
           outputPort.emit(result);
         } else {
-          numNullResponses += 1;
+          numNullResponsesPerWindow += 1;
         }
       } catch (ApexPythonInterpreterException e) {
         errorPort.emit(tuple);
@@ -195,7 +271,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   public void endWindow()
   {
     super.endWindow();
-    numNullResponses = 0;
+    numNullResponsesPerWindow = 0;
   }
 
   @Override
@@ -218,7 +294,7 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
   {
     accumulatedCommandHistory.clear();
     accumulatedCommandHistory.addAll(getApexPythonEngine().getCommandHistory());
-    numStarvedReturns = getApexPythonEngine().getNumStarvedReturns();
+    numStarvedReturnsPerCheckpoint = getApexPythonEngine().getNumStarvedReturns();
   }
 
   @Override
@@ -347,12 +423,12 @@ public abstract class BasePythonExecutionOperator<T> extends BaseOperator implem
 
   public long getNumStarvedReturns()
   {
-    return numStarvedReturns;
+    return numStarvedReturnsPerCheckpoint;
   }
 
   public void setNumStarvedReturns(long numStarvedReturns)
   {
-    this.numStarvedReturns = numStarvedReturns;
+    this.numStarvedReturnsPerCheckpoint = numStarvedReturns;
   }
 
   public List<PythonRequestResponse> getAccumulatedCommandHistory()

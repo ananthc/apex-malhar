@@ -180,7 +180,7 @@ public class InterpreterThread implements Runnable
    * @throws ApexPythonInterpreterException
    */
   public void preInitInterpreter(Map<PythonInterpreterConfig, Object> preInitConfigs)
-      throws ApexPythonInterpreterException
+    throws ApexPythonInterpreterException
   {
     initConfigs.putAll(preInitConfigs);
   }
