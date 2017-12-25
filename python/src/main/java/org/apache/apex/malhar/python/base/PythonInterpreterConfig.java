@@ -18,6 +18,14 @@
  */
 package org.apache.apex.malhar.python.base;
 
+import java.util.Map;
+
+import org.apache.apex.malhar.python.base.jep.JepPythonEngine;
+
+/***
+ * Used as key configs while passing the pre interpreter configuration. See
+ *  {@link JepPythonEngine#preInitInterpreter(Map)}
+ */
 public enum PythonInterpreterConfig
 {
   PYTHON_INCLUDE_PATHS,

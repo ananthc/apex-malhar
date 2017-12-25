@@ -46,28 +46,72 @@ import static com.google.common.base.Preconditions.checkNotNull;
  * <p>Implements the {@link ApexPythonEngine} interface by using the JEP ( Java Embedded Python ) engine. It is an
  *  in-memory interpreter and has the following characteristics:
  *  <ol>
- *    <li></li>
+ *    <li>The python engine allows for 4 major API patterns
+ *    <ul>
+ *      <li>Execute a method call by accepting parameters to pass to the interpreter</li>
+ *      <li>Execute a python script as given in a file path</li>
+ *      <li>Evaluate an expression and allows for passing of variables between the java code and the python
+ *      in-memory interpreter bridge</li>
+ *      <li>A handy method wherein a series of instructions can be passed in one single java call ( executed as a
+ *       sequence of python eval instructions under the hood ) </li>
+ *    </ul>
+ *    <li>Automatic garbage collection of the variables that are passed from java code to the in memory python
+ *     interpreter</li>
+ *    <li>Support for all major python libraries. Tensorflow, Keras, Scikit, XGBoost</li>
+ *    <li>The python engine uses the concept of a worker thread that is responsible for executing any of the 4
+ *     patterns mentioned above. The worker thread is implemented by {@link InterpreterThread}</li>
+ *    <li>The implementation allows for SLA based execution model. i.e. the caller can stipulate that if the call is not
+ *     complete within a time out, the engine code returns back null. See {@link InterpreterWrapper}</li>
+ *    <li>Supports the concept of stragglers i.e. the processing of a request can complete eventually and the
+ *     result available from a queue called as the delayed response queue</li>
+ *    <li>Supports the concept of executing a call on all of the worker threads if required. This is to ensure the
+ *     following use cases:
+ *      <ul>
+ *        <li>Since this is an interpreter, the users can make use of an earlier calls variable definition if
+ *         need be. In such cases, the caller will have the need for a sticky thread i.e. all such calls need to
+ *          end up on the same thread.</li>
+ *        <li>Another reason is to implement the concept of Dynamic partitioning. Since interpreter accumulates
+ *         state due to commands run on it, if a new partition is introduced at runtime, this can failures for all
+ *          subsequent commands as they might depend on variables created in previous windows</li>
+ *      </ul>
+ *    </li>
+ *  </li>
  *  </ol>
  * </p>
+ *
+ * <p> Note that the engine implementation can be used independent of an Operator i.e. as a utility stack if need be.
+ *  Some of the API signatures need a window ID and request ID but they do not necessarily mean that the API
+ *   signatures are bound to an operator lifecycle. These parameters are used for efficient thread usage only and
+ *    the API only needs a monotonically increasing number in true sense.</p>
  */
 public class JepPythonEngine implements ApexPythonEngine
 {
   private static final Logger LOG = LoggerFactory.getLogger(JepPythonEngine.class);
 
+  /* Size of the worker pool */
   private int numWorkerThreads = 2;
 
+  /* A name that can be used while logging messages and also used to set thread names */
   private String threadGroupName;
 
   private static final String JEP_LIBRARY_NAME = "jep";
 
   private transient List<PythonRequestResponse> commandHistory = new ArrayList<>();
 
+  /* Spin policy for the disruptor queue implementation */
   private transient SpinPolicy cpuSpinPolicyForWaitingInBuffer = SpinPolicy.WAITING;
 
-  private int bufferCapacity = 64; // Represents the number of workers and response queue sizes
+  // Represents the number of responses that can be held in the queue
+  private int bufferCapacity = 64;
 
-  private long sleepTimeAfterInterpreterStart = 2000; // 2 secs
+  /* Time used to sleep in the beginning of the interpreter threads run i.e. start  while initializing the interpreter.
+  Note that booting of the memory interpreter can be a really heavy process depending on the libraries that
+   are being loaded and hence this variable */
+  private long sleepTimeAfterInterpreterStart = 3000; // 3 secs
 
+  /**
+   * Represents the queue into which all the stragglers are drained into
+   */
   private transient BlockingQueue<PythonRequestResponse> delayedResponseQueue =
       new DisruptorBlockingQueue<>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
 
@@ -125,10 +169,10 @@ public class JepPythonEngine implements ApexPythonEngine
   }
 
   /***
-   *
-   * @param preInitConfigs See constants
+   * See {@link ApexPythonEngine#preInitInterpreter(Map)} for more details
+   * @param preInitConfigs The configuration that is going to be used by the interpreter.See constants
    *                       defined in {@link PythonInterpreterConfig} for a list of keys available
-   * @throws ApexPythonInterpreterException
+   * @throws ApexPythonInterpreterException if an issue while executing the pre interpreter logic
    */
   @Override
   public void preInitInterpreter(Map<PythonInterpreterConfig, Object> preInitConfigs)
@@ -137,6 +181,11 @@ public class JepPythonEngine implements ApexPythonEngine
     this.preInitConfigs = preInitConfigs;
   }
 
+  /***
+   * Starts all of the worker threads. Also sleeps for a few moments to ensure "fat" frameworks like Tensorflow can
+   *  be allowed to boot completely.
+   * @throws ApexPythonInterpreterException
+   */
   @Override
   public void startInterpreter() throws ApexPythonInterpreterException
   {
@@ -149,6 +198,12 @@ public class JepPythonEngine implements ApexPythonEngine
     }
   }
 
+  /***
+   * Used to execute all of the commands from the command history when an operator is instantiating a new instance of
+   *  the engine. Used by the dynamic partitioner to let a newly provisioned operator to catch up to the state of all of
+   *  the remaining operator instances
+   * @throws ApexPythonInterpreterException
+   */
   @Override
   public void postStartInterpreter() throws ApexPythonInterpreterException
   {
@@ -164,6 +219,18 @@ public class JepPythonEngine implements ApexPythonEngine
     }
   }
 
+  /***
+   * See {@link ApexPythonEngine#runCommands(WorkerExecutionMode, long, long, PythonInterpreterRequest)} for more
+   *  details. Note that if the worker execution mode {@link WorkerExecutionMode} is ALL_WORKERS, then the time SLA
+   *  set is the total time for all workers i.e. each worker is given a ( total time / N ) where N is the current
+   *   number of worker threads
+   * @param executionMode Whether these commands need to be run on all worker nodes or any of the worker node
+   * @param windowId used to select the worker from the worker pool.Can be any long if an operator is not using this.
+   * @param requestId used to select the worker from the worker pool. Can be any long if an operator is not using this.
+   * @param request Represents the request to be processed.
+   * @return A map containing the command as key and boolean representing success or failure as the value.
+   * @throws ApexPythonInterpreterException
+   */
   @Override
   public Map<String,PythonRequestResponse<Void>> runCommands(WorkerExecutionMode executionMode,long windowId,
       long requestId, PythonInterpreterRequest<Void> request) throws ApexPythonInterpreterException
@@ -213,6 +280,20 @@ public class JepPythonEngine implements ApexPythonEngine
     return returnStatus;
   }
 
+  /***
+   *  See {@link ApexPythonEngine#executeMethodCall(WorkerExecutionMode, long, long, PythonInterpreterRequest)} for more
+   *  details. Note that if the worker execution mode {@link WorkerExecutionMode} is ALL_WORKERS, then the time SLA
+   *  set is the total time for all workers i.e. each worker is given a ( total time / N ) where N is the current
+   *   number of worker threads
+   *
+   * @param executionMode If the method call needs to be invoked on all workers or any single worker
+   * @param windowId used to select the worker from the worker pool.Can be any long if an operator is not using this.
+   * @param requestId used to select the worker from the worker pool. Can be any long if an operator is not using this.
+   * @param req Represents the request to be processed.
+   * @param <T>
+   * @return
+   * @throws ApexPythonInterpreterException
+   */
   @Override
   public <T> Map<String,PythonRequestResponse<T>> executeMethodCall(WorkerExecutionMode executionMode,long windowId,
       long requestId, PythonInterpreterRequest<T> req) throws ApexPythonInterpreterException
@@ -252,6 +333,18 @@ public class JepPythonEngine implements ApexPythonEngine
     return returnStatus;
   }
 
+  /***
+   *   See {@link ApexPythonEngine#executeScript(WorkerExecutionMode, long, long, PythonInterpreterRequest)} for more
+   *  details. Note that if the worker execution mode {@link WorkerExecutionMode} is ALL_WORKERS, then the time SLA
+   *  set is the total time for all workers i.e. each worker is given a ( total time / N ) where N is the current
+   *   number of worker threads
+   * @param executionMode  If the method call needs to be invoked on all workers or any single worker
+   * @param windowId used to select the worker from the worker pool.Can be any long if an operator is not using this.
+   * @param requestId used to select the worker from the worker pool. Can be any long if an operator is not using this.
+   * @param req Represents the request to be processed.
+   * @return
+   * @throws ApexPythonInterpreterException
+   */
   @Override
   public Map<String,PythonRequestResponse<Void>> executeScript(WorkerExecutionMode executionMode,long windowId,
       long requestId, PythonInterpreterRequest<Void> req)
@@ -298,6 +391,19 @@ public class JepPythonEngine implements ApexPythonEngine
     checkNotNull(request.getTimeUnit(), "Time out unit not set");
   }
 
+  /***
+   *  See {@link ApexPythonEngine#eval(WorkerExecutionMode, long, long, PythonInterpreterRequest)} for more
+   *  details. Note that if the worker execution mode {@link WorkerExecutionMode} is ALL_WORKERS, then the time SLA
+   *  set is the total time for all workers i.e. each worker is given a ( total time / N ) where N is the current
+   *   number of worker threads
+   * @param executionMode If the method call needs to be invoked on all workers or any single worker
+   * @param windowId used to select the worker from the worker pool.Can be any long if an operator is not using this.
+   * @param requestId used to select the worker from the worker pool. Can be any long if an operator is not using this.
+   * @param request
+   * @param <T>
+   * @return
+   * @throws ApexPythonInterpreterException
+   */
   @Override
   public <T> Map<String,PythonRequestResponse<T>> eval(WorkerExecutionMode executionMode,long windowId, long requestId,
       PythonInterpreterRequest<T> request) throws ApexPythonInterpreterException

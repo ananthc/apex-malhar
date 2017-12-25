@@ -18,6 +18,13 @@
  */
 package org.apache.apex.malhar.python.base;
 
+/***
+ * Used to specify if a given API invocation in the in-memory interpreter is going to be invoked for all the worker
+ *  threads or just any one thread. {@link WorkerExecutionMode#ALL_WORKERS} is to be used when the command is
+ *   resulting in a state of the interpreter which has to be used in subsequent calls. For example, deserializing a
+ *    machine learning model can be used as a ALL_WORKERS model as the scoring can then be invoked across all worker
+ *     threads if required. Conversely ANY_WORKER represents a state wherein any worker can be used to score.
+ */
 public enum WorkerExecutionMode
 {
   ALL_WORKERS,

@@ -491,6 +491,13 @@ public class InterpreterThread implements Runnable
     busyFlag = false;
   }
 
+  /***
+   * Starts the interpreter as soon as the thread starts running. This is due to the limitation of JEP which stipulates
+   *  that the thread which started the interpreter can only issue subsequent calls/invocations. This is due to JNI
+   *   limitations. The thread then tries to consume from the request queue and process them. If there are no requests
+   *    present then the thread can possibly go to sleep based on the {@link SpinPolicy} configured. The spin policy
+   *     is passed in as the pre init configurations. See {@link PythonInterpreterConfig} for more details
+   */
   @Override
   public void run()
   {
