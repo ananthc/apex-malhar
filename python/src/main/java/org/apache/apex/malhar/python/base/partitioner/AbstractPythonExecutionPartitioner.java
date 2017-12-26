@@ -32,6 +32,10 @@ import com.datatorrent.api.DefaultPartition;
 import com.datatorrent.api.Partitioner;
 import com.datatorrent.lib.util.KryoCloneUtils;
 
+/***
+ * Abstract partitioner that can be used in partitioning instances of the BasePythonExecution operator. This
+ *  class does not do anything meaningful. See {@link ThreadStarvationBasedPartitioner} for details.
+ */
 public abstract class AbstractPythonExecutionPartitioner implements Partitioner<BasePythonExecutionOperator>
 {
   private static final Logger LOG = LoggerFactory.getLogger(AbstractPythonExecutionPartitioner.class);
@@ -48,11 +52,11 @@ public abstract class AbstractPythonExecutionPartitioner implements Partitioner<
   public Collection<Partition<BasePythonExecutionOperator>> definePartitions(
       Collection<Partition<BasePythonExecutionOperator>> partitions, PartitioningContext context)
   {
-    List<Partition<BasePythonExecutionOperator>> requiredPartitions = calculateNumPartitions(partitions, context);
+    List<Partition<BasePythonExecutionOperator>> requiredPartitions = buildTargetPartitions(partitions, context);
     return requiredPartitions;
   }
 
-  protected abstract List<Partition<BasePythonExecutionOperator>> calculateNumPartitions(
+  protected abstract List<Partition<BasePythonExecutionOperator>> buildTargetPartitions(
       Collection<Partition<BasePythonExecutionOperator>> partitions, PartitioningContext context);
 
   @Override

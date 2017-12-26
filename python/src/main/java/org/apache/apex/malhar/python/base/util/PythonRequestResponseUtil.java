@@ -85,7 +85,17 @@ public class PythonRequestResponseUtil
     return request;
   }
 
-
+  /***
+   * Builds the request object for the Method call command. See
+   * {@link ApexPythonEngine#executeMethodCall(WorkerExecutionMode, long, long, PythonInterpreterRequest)} for details
+   * @param methodName Name of the method
+   * @param methodParams parames to the method
+   * @param timeOut Time allocated for completing the API
+   * @param timeUnit The units of time
+   * @param clazz The Class that represents the return type
+   * @param <T> Java templating signature
+   * @return The request object that can be used for method calls
+   */
   public static <T> PythonInterpreterRequest<T> buildRequestForMethodCallCommand(
       String methodName, List<Object> methodParams, long timeOut, TimeUnit timeUnit, Class<T> clazz)
   {
@@ -99,8 +109,16 @@ public class PythonRequestResponseUtil
     return request;
   }
 
-
-  public static <T> PythonInterpreterRequest<T> buildRequestForScriptdCallCommand(
+  /***
+   * Builds a request object that can be used for executing the script call commands.
+   * @param scriptPath Full path to the file name containing the script
+   * @param timeOut The time that can be used to complete the execution of the script
+   * @param timeUnit Unit of time for time out parameter
+   * @param clazz The class that can be used to represent the return type
+   * @param <T> Java template for type inference
+   * @return The Request object that can be used for a script call invocation
+   */
+  public static <T> PythonInterpreterRequest<T> buildRequestForScriptCallCommand(
       String scriptPath, long timeOut, TimeUnit timeUnit, Class<T> clazz)
   {
     PythonInterpreterRequest<T> request = new PythonInterpreterRequest<>(clazz);

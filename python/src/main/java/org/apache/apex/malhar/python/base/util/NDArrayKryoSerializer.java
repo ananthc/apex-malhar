@@ -25,6 +25,11 @@ import com.esotericsoftware.kryo.io.Output;
 
 import jep.NDArray;
 
+/***
+ * A handy Kryo serializer class that can be used to serialize and deserialize a JEP NDArray instance. It is
+ *  recommended that {@link NDimensionalArray} be used in lieu of this class. This is because NDArray is highly specific
+ *   JEP data structure and will not give flexibility if the python engines are changed in the future.
+ */
 public class NDArrayKryoSerializer extends Serializer<NDArray>
 {
   private static final short TRUE_AS_SHORTINT = 1;

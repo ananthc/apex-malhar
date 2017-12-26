@@ -28,6 +28,11 @@ import org.slf4j.LoggerFactory;
 import org.apache.apex.malhar.python.base.BasePythonExecutionOperator;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
 
+/***
+ * A partitioner that adds another instance of the python operator when the percent of non-serviced requests within any
+ *  two checkpoint boundaries exceed a certain threshold. The threshold for triggering is configurable and is expressed
+ *   as a percentage.
+ */
 public class ThreadStarvationBasedPartitioner extends AbstractPythonExecutionPartitioner
 {
   private static final Logger LOG = LoggerFactory.getLogger(ThreadStarvationBasedPartitioner.class);
@@ -39,8 +44,16 @@ public class ThreadStarvationBasedPartitioner extends AbstractPythonExecutionPar
     super(prototypePythonOperator);
   }
 
+  /***
+   * Calculates the paritions that are required based on the starvations encountered for each checkpoint state. The
+   *  new instance is fed with the command history of the original operator ( if any ) so that the new instance can
+   *   be in the same state of the original operator when it starts processing the new tuples.
+   * @param partitions The current set of partitions
+   * @param context The partitioning context
+   * @return The new set of partitioned instances keeping the old ones in tact and rebuilding only new ones if needed.
+   */
   @Override
-  protected List<Partition<BasePythonExecutionOperator>> calculateNumPartitions(
+  protected List<Partition<BasePythonExecutionOperator>> buildTargetPartitions(
       Collection<Partition<BasePythonExecutionOperator>> partitions, PartitioningContext context)
   {
     List<Partition<BasePythonExecutionOperator>> returnList = new ArrayList<>();
@@ -54,6 +67,7 @@ public class ThreadStarvationBasedPartitioner extends AbstractPythonExecutionPar
           float starvationPercent = 100 - ( ((requestsForCheckpointWindow - starvedCount ) /
               requestsForCheckpointWindow) * 100);
           if (starvationPercent > anOperator.getStarvationPercentBeforeSpawningNewInstance()) {
+            LOG.info("Creating a new instance of the python operator as starvation % is " + starvationPercent);
             Partition<BasePythonExecutionOperator> newInstance = clonePartition();
             List<PythonRequestResponse> commandHistory = new ArrayList<>();
             commandHistory.addAll(anOperator.getAccumulatedCommandHistory());

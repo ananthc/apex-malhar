@@ -159,8 +159,14 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
   @AutoMetric
   private long numNullResponsesPerWindow = 0;
 
+  /***
+   * Represents all python commands that need to be run on a new instance of the operator after dynamic partitioning
+   */
   private List<PythonRequestResponse> accumulatedCommandHistory = new ArrayList<>();
 
+  /***
+   * Processes the incoming tuple using the python engine that is injected. Also emits stragglers if any.
+   */
   @InputPortFieldAnnotation
   public final transient DefaultInputPort<T> input = new DefaultInputPort<T>()
   {
@@ -183,6 +189,7 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
     }
   };
 
+
   @Override
   public void activate(Context.OperatorContext context)
   {
@@ -195,6 +202,10 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
 
   }
 
+  /***
+   * Used to emit the stragglers into the Stragglers port. INvoked both when a new tuple arrives or when Idle time
+   *  is detected on this operator.
+   */
   private void emitStragglers()
   {
     List<PythonRequestResponse> stragglerResponse = new ArrayList<>();
@@ -204,6 +215,11 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
     }
   }
 
+  /***
+   * Instantiates the configured python engine. Only in-memory implementation provided for now
+   * @param context The operator context
+   * @return The python engine
+   */
   protected ApexPythonEngine initApexPythonEngineImpl(Context.OperatorContext context)
   {
     JepPythonEngine jepPythonEngine = new JepPythonEngine("" + context.getId(),workerThreadPoolSize);
@@ -211,6 +227,9 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
     return jepPythonEngine;
   }
 
+  /***
+   * Instantiates the partitioner. Only Thread Starvation based partitioner for now.
+   */
   private void initPartitioner()
   {
     if (partitioner == null) {
@@ -227,6 +246,11 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
     }
   }
 
+  /***
+   * Starts the python engine and also sleeps for sometime ( configurable) to ensure that the interpreter is
+   *  completely booted up in memory. The time taken to boot the interpreter depends on the libaries that are loaded etc
+   * @param context The Operator context
+   */
   @Override
   public void setup(Context.OperatorContext context)
   {
@@ -346,6 +370,13 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
     this.apexPythonEngine = apexPythonEngine;
   }
 
+  /***
+   * Override this method to perform any meaningful work in python interpreter space.
+   * @param input The incoming tuple
+   * @param pythonEngineRef The impementation of the Python interpreter that can be used to execute python commands
+   * @return The result of execution wrapped as a PythonRequestResponse Object
+   * @throws ApexPythonInterpreterException if interrupted or no workers avaialble to execute the python code.
+   */
   public PythonRequestResponse processPython(T input, ApexPythonEngine pythonEngineRef)
     throws ApexPythonInterpreterException
   {
@@ -353,7 +384,9 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
   }
 
   /***
-   * See constants defined in {@link PythonInterpreterConfig} for a list of keys available
+   * See constants defined in {@link PythonInterpreterConfig} for a list of keys available. Override this method
+   *  to refine the configuration that is being used to start the interpreter instance. Please see test
+   *   application implemented in the test code for example usage.
    * @return
    */
   public Map<PythonInterpreterConfig,Object> getPreInitConfigurations()

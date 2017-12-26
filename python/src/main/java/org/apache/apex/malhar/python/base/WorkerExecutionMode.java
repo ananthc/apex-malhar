@@ -22,12 +22,16 @@ import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterReque
 
 /***
  * <p>Used to specify if a given API invocation in the in-memory interpreter is going to be invoked for all the worker
- *  threads, a sticky thread or just any one thread. {@link WorkerExecutionMode#ALL_WORKERS} is to be used when the
+ *  threads, a sticky thread or just any one thread.
+ *
+ *  - {@link WorkerExecutionMode#ALL_WORKERS} is to be used when the
  *   command is resulting in a state of the interpreter which has to be used in subsequent calls. For example,
  *   deserializing a machine learning model can be used as a ALL_WORKERS model as the scoring can then be invoked across
- *   all worker threads if required. Conversely ANY_WORKER represents a state wherein any worker can be used to score.
- *   Use STICKY_WORKER if the same worker needs to service the request. The downside of this is that it may or may not
- *   complete on time depending on the queue length.</p>
+ *   all worker threads if required.
+ *  - {@link WorkerExecutionMode#ANY_WORKER} Represents a state wherein any worker can be used to execute the code.
+ *   Example would be scoring an incoming tuple on which the model has already been deserialized across all nodes
+ *  - {@link WorkerExecutionMode#STICKY_WORKER} Use STICKY_WORKER if the same worker needs to service the request.
+ *    The downside of this is that it may or may not complete on time and depends on the queue length.</p>
  *
  *   <p><b>Ensure the {@link PythonInterpreterRequest#hashCode()} is overridden if STICKY_WORKER is chosen </b></p>
  */
