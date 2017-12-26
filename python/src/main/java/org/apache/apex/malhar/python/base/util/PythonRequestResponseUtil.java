@@ -22,14 +22,28 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.apex.malhar.python.base.ApexPythonEngine;
+import org.apache.apex.malhar.python.base.WorkerExecutionMode;
 import org.apache.apex.malhar.python.base.requestresponse.EvalCommandRequestPayload;
 import org.apache.apex.malhar.python.base.requestresponse.GenericCommandsRequestPayload;
 import org.apache.apex.malhar.python.base.requestresponse.MethodCallRequestPayload;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.ScriptExecutionRequestPayload;
 
+/*** A handy utility class that implements boiler plate code while building request objects. Only commonly
+ * used ones are implemented.
+ *
+ */
 public class PythonRequestResponseUtil
 {
+  /***
+   * Builds the request object for run commands API request. See
+   * {@link ApexPythonEngine#runCommands(WorkerExecutionMode, long, long, PythonInterpreterRequest)} for details
+   * @param commands
+   * @param timeOut timeout for the request to complete
+   * @param timeUnit Time units
+   * @return A request object that can be passed to the Python Engine API for run commands
+   */
   public static PythonInterpreterRequest<Void> buildRequestObjectForRunCommands(List<String> commands, long timeOut,
       TimeUnit timeUnit)
   {
@@ -42,6 +56,19 @@ public class PythonRequestResponseUtil
     return request;
   }
 
+  /***
+   * Builds the request object for the Eval command request. See
+   * {@link ApexPythonEngine#eval(WorkerExecutionMode, long, long, PythonInterpreterRequest)} for details
+   * @param evalCommand The eval expression
+   * @param evalParams Variables that need to be substituted
+   * @param varNameToExtract The name of variable to extract if any after the expression is evaluated. Can be null
+   * @param deleteVarAfterExtract The name of the variable to delete if any. null allowed
+   * @param timeOut Timeout for the API to complete processing
+   * @param timeUnit Units of time for the time out variable
+   * @param clazz The Class that represents the return type
+   * @param <T> Template construct for Java type inference
+   * @return The request object that can be used for the Eval command
+   */
   public static <T> PythonInterpreterRequest<T> buildRequestForEvalCommand(
       String evalCommand, Map<String,Object> evalParams, String varNameToExtract,
       boolean deleteVarAfterExtract, long timeOut, TimeUnit timeUnit, Class<T> clazz)

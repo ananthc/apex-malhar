@@ -32,7 +32,6 @@ import org.apache.apex.malhar.python.base.ApexPythonEngine;
 import org.apache.apex.malhar.python.base.ApexPythonInterpreterException;
 import org.apache.apex.malhar.python.base.PythonInterpreterConfig;
 import org.apache.apex.malhar.python.base.WorkerExecutionMode;
-import org.apache.apex.malhar.python.base.partitioner.ThreadStarvationBasedPartitioner;
 import org.apache.apex.malhar.python.base.requestresponse.PythonCommandType;
 import org.apache.apex.malhar.python.base.requestresponse.PythonInterpreterRequest;
 import org.apache.apex.malhar.python.base.requestresponse.PythonRequestResponse;
@@ -270,19 +269,7 @@ public class JepPythonEngine implements ApexPythonEngine
     Map<String,PythonRequestResponse<Void>> returnStatus = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     try {
-      if (!executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
-        LOG.debug("Executing run commands on a single interpreter worker thread");
-        InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
-        if ( currentThread != null) {
-          lastSuccessfullySubmittedRequest = currentThread.runCommands(windowId,requestId,request);
-          if (lastSuccessfullySubmittedRequest != null) {
-            returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
-          }
-        } else {
-          throw new ApexPythonInterpreterException("No free interpreter threads available." +
-            " Consider increasing workers and relaunch");
-        }
-      } else {
+      if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
         LOG.debug("Executing run commands on all of the interpreter worker threads");
         long  timeOutPerWorker = TimeUnit.NANOSECONDS.convert(request.getTimeout(),request.getTimeUnit()) /
             numWorkerThreads;
@@ -297,6 +284,25 @@ public class JepPythonEngine implements ApexPythonEngine
           if (lastSuccessfullySubmittedRequest != null) {
             returnStatus.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
           }
+        }
+      } else {
+        InterpreterWrapper currentThread = null;
+        if (executionMode.equals(WorkerExecutionMode.ANY_WORKER)) {
+          LOG.debug("Executing run commands on a single interpreter worker thread");
+          currentThread = selectWorkerForCurrentCall(requestId);
+        }
+        if (executionMode.equals(WorkerExecutionMode.STICKY_WORKER)) {
+          currentThread = workers.get(request.hashCode() % numWorkerThreads);
+          LOG.debug(" Choosing sticky worker " + currentThread.getInterpreterId());
+        }
+        if (currentThread != null) {
+          lastSuccessfullySubmittedRequest = currentThread.runCommands(windowId, requestId, request);
+          if (lastSuccessfullySubmittedRequest != null) {
+            returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
+          }
+        } else {
+          throw new ApexPythonInterpreterException("No free interpreter threads available." +
+            " Consider increasing workers and relaunch");
         }
       }
     } catch (InterruptedException e) {
@@ -334,6 +340,13 @@ public class JepPythonEngine implements ApexPythonEngine
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     try {
       if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
+        long timeOutPerWorker = TimeUnit.NANOSECONDS.convert(req.getTimeout(), req.getTimeUnit()) /
+            numWorkerThreads;
+        if ( timeOutPerWorker == 0) {
+          timeOutPerWorker = 1;
+        }
+        req.setTimeout(timeOutPerWorker);
+        req.setTimeUnit(TimeUnit.NANOSECONDS);
         for ( InterpreterWrapper wrapper : workers) {
           lastSuccessfullySubmittedRequest = wrapper.executeMethodCall(windowId,requestId,req);
           if ( lastSuccessfullySubmittedRequest != null) {
@@ -341,15 +354,22 @@ public class JepPythonEngine implements ApexPythonEngine
           }
         }
       } else {
-        InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
-        if ( currentThread != null) {
-          lastSuccessfullySubmittedRequest = currentThread.executeMethodCall(windowId,requestId,req);
+        InterpreterWrapper currentThread = null;
+        if (executionMode.equals(WorkerExecutionMode.ANY_WORKER)) {
+          currentThread = selectWorkerForCurrentCall(requestId);
+        }
+        if (executionMode.equals(WorkerExecutionMode.STICKY_WORKER)) {
+          currentThread = workers.get(req.hashCode() % numWorkerThreads);
+          LOG.debug(" Choosing sticky worker " + currentThread.getInterpreterId());
+        }
+        if (currentThread != null) {
+          lastSuccessfullySubmittedRequest = currentThread.executeMethodCall(windowId, requestId, req);
           if (lastSuccessfullySubmittedRequest != null) {
-            returnStatus.put(currentThread.getInterpreterId(),lastSuccessfullySubmittedRequest);
+            returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
+          } else {
+            throw new ApexPythonInterpreterException("No free interpreter threads available." +
+              " Consider increasing workers and relaunch");
           }
-        } else {
-          throw new ApexPythonInterpreterException("No free interpreter threads available." +
-            " Consider increasing workers and relaunch");
         }
       }
     } catch (InterruptedException e) {
@@ -385,6 +405,13 @@ public class JepPythonEngine implements ApexPythonEngine
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     try {
       if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
+        long timeOutPerWorker = TimeUnit.NANOSECONDS.convert(req.getTimeout(), req.getTimeUnit()) /
+            numWorkerThreads;
+        if ( timeOutPerWorker == 0) {
+          timeOutPerWorker = 1;
+        }
+        req.setTimeout(timeOutPerWorker);
+        req.setTimeUnit(TimeUnit.NANOSECONDS);
         for ( InterpreterWrapper wrapper : workers) {
           lastSuccessfullySubmittedRequest = wrapper.executeScript(windowId,requestId,req);
           if (lastSuccessfullySubmittedRequest != null) {
@@ -392,9 +419,16 @@ public class JepPythonEngine implements ApexPythonEngine
           }
         }
       } else {
-        InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
+        InterpreterWrapper currentThread = null;
+        if (executionMode.equals(WorkerExecutionMode.ANY_WORKER)) {
+          currentThread = selectWorkerForCurrentCall(requestId);
+        }
+        if (executionMode.equals(WorkerExecutionMode.STICKY_WORKER)) {
+          currentThread = workers.get(req.hashCode() % numWorkerThreads);
+          LOG.debug(" Choosing sticky worker " + currentThread.getInterpreterId());
+        }
         if (currentThread != null) {
-          lastSuccessfullySubmittedRequest = currentThread.executeScript(windowId, requestId,req);
+          lastSuccessfullySubmittedRequest = currentThread.executeScript(windowId, requestId, req);
           if (lastSuccessfullySubmittedRequest != null) {
             returnStatus.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
           }
@@ -442,18 +476,7 @@ public class JepPythonEngine implements ApexPythonEngine
     Map<String,PythonRequestResponse<T>> statusOfEval = new HashMap<>();
     PythonRequestResponse lastSuccessfullySubmittedRequest = null;
     try {
-      if (!executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
-        InterpreterWrapper currentThread = selectWorkerForCurrentCall(requestId);
-        if ( currentThread != null) {
-          lastSuccessfullySubmittedRequest = currentThread.eval(windowId,requestId,request);
-          if ( lastSuccessfullySubmittedRequest != null) {
-            statusOfEval.put(currentThread.getInterpreterId(),lastSuccessfullySubmittedRequest);
-          }
-        } else {
-          throw new ApexPythonInterpreterException("No free interpreter threads available." +
-            " Consider increasing workers and relaunch");
-        }
-      } else {
+      if (executionMode.equals(WorkerExecutionMode.ALL_WORKERS)) {
         long timeOutPerWorker = TimeUnit.NANOSECONDS.convert(request.getTimeout(), request.getTimeUnit()) /
             numWorkerThreads;
         if ( timeOutPerWorker == 0) {
@@ -466,6 +489,24 @@ public class JepPythonEngine implements ApexPythonEngine
           if (lastSuccessfullySubmittedRequest != null) {
             statusOfEval.put(wrapper.getInterpreterId(), lastSuccessfullySubmittedRequest);
           }
+        }
+      } else {
+        InterpreterWrapper currentThread = null;
+        if (executionMode.equals(WorkerExecutionMode.ANY_WORKER)) {
+          currentThread = selectWorkerForCurrentCall(requestId);
+        }
+        if (executionMode.equals(WorkerExecutionMode.STICKY_WORKER)) {
+          currentThread = workers.get(request.hashCode() % numWorkerThreads);
+          LOG.debug(" Choosing sticky worker " + currentThread.getInterpreterId());
+        }
+        if (currentThread != null) {
+          lastSuccessfullySubmittedRequest = currentThread.eval(windowId, requestId, request);
+          if (lastSuccessfullySubmittedRequest != null) {
+            statusOfEval.put(currentThread.getInterpreterId(), lastSuccessfullySubmittedRequest);
+          }
+        } else {
+          throw new ApexPythonInterpreterException("No free interpreter threads available." +
+            " Consider increasing workers and relaunch");
         }
       }
     } catch (InterruptedException e) {
