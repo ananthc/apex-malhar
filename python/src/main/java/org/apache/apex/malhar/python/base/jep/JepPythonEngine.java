@@ -150,9 +150,16 @@ public class JepPythonEngine implements ApexPythonEngine
 
   private void initWorkers() throws ApexPythonInterpreterException
   {
+    LOG.info("Attempting to load the JEP dynamic library");
     System.loadLibrary(JEP_LIBRARY_NAME);
+    LOG.info("Successfully loaded the JEP dynamic library in memory");
+    SpinPolicy spinPolicyForReqQueue = SpinPolicy.WAITING;
+    if (preInitConfigs.containsKey(PythonInterpreterConfig.REQUEST_QUEUE_WAIT_SPIN_POLICY)) {
+      spinPolicyForReqQueue = (SpinPolicy)preInitConfigs.get(PythonInterpreterConfig.REQUEST_QUEUE_WAIT_SPIN_POLICY);
+    }
     for ( int i = 0; i < numWorkerThreads; i++) {
-      InterpreterWrapper aWorker = new InterpreterWrapper(threadGroupName + "-" + i,delayedResponseQueue);
+      InterpreterWrapper aWorker = new InterpreterWrapper(threadGroupName + "-" + i,delayedResponseQueue,
+          spinPolicyForReqQueue);
       aWorker.preInitInterpreter(preInitConfigs);
       aWorker.startInterpreter();
       workers.add(aWorker);

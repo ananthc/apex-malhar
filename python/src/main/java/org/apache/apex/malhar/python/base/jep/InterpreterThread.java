@@ -44,10 +44,10 @@ import jep.JepConfig;
 import jep.JepException;
 import jep.NDArray;
 
+import static org.apache.apex.malhar.python.base.PythonInterpreterConfig.IDLE_INTERPRETER_SPIN_POLICY;
 import static org.apache.apex.malhar.python.base.PythonInterpreterConfig.PYTHON_INCLUDE_PATHS;
 import static org.apache.apex.malhar.python.base.PythonInterpreterConfig.PYTHON_SHARED_LIBS;
 import static org.apache.apex.malhar.python.base.PythonInterpreterConfig.SLEEP_TIME_MS_IN_CASE_OF_NO_REQUESTS;
-import static org.apache.apex.malhar.python.base.PythonInterpreterConfig.SPIN_POLICY;
 
 /**
  * <p>
@@ -217,8 +217,8 @@ public class InterpreterThread implements Runnable
     } else {
       LOG.info(" No shared libraries loaded");
     }
-    if (initConfigs.containsKey(SPIN_POLICY)) {
-      spinPolicy = SpinPolicy.valueOf((String)initConfigs.get(SPIN_POLICY));
+    if (initConfigs.containsKey(IDLE_INTERPRETER_SPIN_POLICY)) {
+      spinPolicy = SpinPolicy.valueOf((String)initConfigs.get(IDLE_INTERPRETER_SPIN_POLICY));
       LOG.debug("Configuring spin policy to be " + spinPolicy);
     }
     if (initConfigs.containsKey(SLEEP_TIME_MS_IN_CASE_OF_NO_REQUESTS)) {

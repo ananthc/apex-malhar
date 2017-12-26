@@ -77,10 +77,12 @@ public class InterpreterWrapper
    *
    * @param delayedResponsesQueueRef The queue into which all of the straggler responses will end in
    */
-  public InterpreterWrapper(String interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef)
+  public InterpreterWrapper(String interpreterId,BlockingQueue<PythonRequestResponse> delayedResponsesQueueRef,
+      SpinPolicy spinPolicyForWaitingInRequestQueue)
   {
     delayedResponsesQueue = delayedResponsesQueueRef;
     this.interpreterId = interpreterId;
+    this.cpuSpinPolicyForWaitingInBuffer = spinPolicyForWaitingInRequestQueue;
     requestQueue = new DisruptorBlockingQueue<>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
     responseQueue =  new DisruptorBlockingQueue<>(bufferCapacity,cpuSpinPolicyForWaitingInBuffer);
     interpreterThread = new InterpreterThread(requestQueue,responseQueue,interpreterId);

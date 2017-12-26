@@ -81,7 +81,8 @@ public class BaseJEPTest extends BasePythonTest
           executorService.submit(pythonEngineThread);
 
           // interpreter wrapper for wrapper based tests
-          interpreterWrapper = new InterpreterWrapper("unit-test-wrapper",delayedResponseQueueForWrapper);
+          interpreterWrapper = new InterpreterWrapper("unit-test-wrapper",delayedResponseQueueForWrapper,
+              SpinPolicy.SPINNING);
           interpreterWrapper.startInterpreter();
 
           // JEP python engine tests

@@ -96,7 +96,7 @@ import com.datatorrent.common.util.BaseOperator;
  *   following configuration snippet for the JEP engine
  *   <code>
  *       Map<PythonInterpreterConfig,Object> preInitConfigs = new HashMap<>();
- *       preInitConfigs.put(PythonInterpreterConfig.SPIN_POLICY, ""+ SpinPolicy.BUSY_SPIN);
+ *       preInitConfigs.put(PythonInterpreterConfig.IDLE_INTERPRETER_SPIN_POLICY, ""+ SpinPolicy.BUSY_SPIN);
  *   </code>
  *   This mapping can be set by overriding {@link BasePythonExecutionOperator#getPreInitConfigurations()}. For more
  *    details refer {@link SpinPolicy}.

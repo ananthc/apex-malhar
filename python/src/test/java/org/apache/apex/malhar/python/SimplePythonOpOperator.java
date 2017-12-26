@@ -48,7 +48,11 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     Set<String> sharedLibsList = new HashSet<>();
     sharedLibsList.add("numpy");
     preInitConfigs.put(PythonInterpreterConfig.PYTHON_SHARED_LIBS, sharedLibsList);
-    preInitConfigs.put(PythonInterpreterConfig.SPIN_POLICY, "" + SpinPolicy.BUSY_SPIN);
+    // Next two configs allow for a very low latency mode wherein the cost of CPU is sacrificed for low latencies
+    // Defaults are saner and the following config is overriding
+    preInitConfigs.put(PythonInterpreterConfig.IDLE_INTERPRETER_SPIN_POLICY, "" + SpinPolicy.BUSY_SPIN);
+    preInitConfigs.put(PythonInterpreterConfig.REQUEST_QUEUE_WAIT_SPIN_POLICY,
+        com.conversantmedia.util.concurrent.SpinPolicy.SPINNING);
     return preInitConfigs;
   }
 
@@ -59,6 +63,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     Map<String,Object> evalParams = new HashMap<>();
     evalParams.put("intArrayToAdd",input.getNumpyIntArray());
     evalParams.put("floatArrayToAdd",input.getNumpyFloatArray());
+    // Not assigning to any var as this results in output printed on the console which can be a validation of redirect
     String evalCommand = "np.add(intMatrix,intArrayToAdd)";
     PythonInterpreterRequest<NDimensionalArray> request = PythonRequestResponseUtil.buildRequestForEvalCommand(
         evalCommand,evalParams,"intMatrix",false, 20,
@@ -80,7 +85,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
     commandsToRun.add("intMatrix = np.ones((2,2),dtype=int)");
     commandsToRun.add("floatMatrix = np.ones((2,2),dtype=float)");
     pythonEngineRef.runCommands(WorkerExecutionMode.ALL_WORKERS,0L,0L,
-        PythonRequestResponseUtil.buildRequestObjectForRunCommands(commandsToRun,200, TimeUnit.MILLISECONDS));
+        PythonRequestResponseUtil.buildRequestObjectForRunCommands(commandsToRun,1, TimeUnit.SECONDS));
   }
 
   public Map<String, PythonRequestResponse<NDimensionalArray>> getLastKnownResponse()
