@@ -110,7 +110,15 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
   private static final transient Logger LOG = LoggerFactory.getLogger(BasePythonExecutionOperator.class);
 
   /*  a rolling counter for all requests in the current window */
-  protected transient long requestIdForThisWindow = 0;
+  protected transient long requestCounterForThisWindow = 0;
+
+  protected transient long responseCounterForThisWindow = 0;
+
+  /***
+   * Blocks the operator thread in endWindow until all of the tuples for the window are successfully emitted. Note
+   *  that these might be emitted from the stragglers port as well.
+   */
+  protected boolean blockAtEndOfWindowForStragglers = false;
 
   protected transient long currentWindowId = 0;
 
@@ -174,10 +182,12 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
     public void process(T tuple)
     {
       numberOfRequestsProcessedPerCheckpoint += 1;
+      requestCounterForThisWindow += 1;
       emitStragglers();
       try {
         PythonRequestResponse result = processPython(tuple,getApexPythonEngine());
         if ( result != null) {
+          responseCounterForThisWindow += 1;
           outputPort.emit(result);
         } else {
           numNullResponsesPerWindow += 1;
@@ -211,6 +221,7 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
     List<PythonRequestResponse> stragglerResponse = new ArrayList<>();
     getApexPythonEngine().getDelayedResponseQueue().drainTo(stragglerResponse);
     for (PythonRequestResponse aReqResponse : stragglerResponse) {
+      responseCounterForThisWindow += 1;
       stragglersPort.emit(aReqResponse);
     }
   }
@@ -287,7 +298,9 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
   public void beginWindow(long windowId)
   {
     super.beginWindow(windowId);
-    requestIdForThisWindow = 0;
+    requestCounterForThisWindow = 0;
+    responseCounterForThisWindow = 0;
+    numNullResponsesPerWindow = 0;
     currentWindowId = windowId;
   }
 
@@ -295,7 +308,16 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
   public void endWindow()
   {
     super.endWindow();
-    numNullResponsesPerWindow = 0;
+    if (responseCounterForThisWindow < requestCounterForThisWindow) {
+      LOG.info("Detected stragglers and configured flag/state for blocking at end of window is " +
+          blockAtEndOfWindowForStragglers);
+      if (blockAtEndOfWindowForStragglers) {
+        while (responseCounterForThisWindow < requestCounterForThisWindow) {
+          LOG.debug("Trying to emit all stragglers before the next window can be processed");
+          emitStragglers();
+        }
+      }
+    }
   }
 
   @Override
@@ -472,5 +494,15 @@ public class BasePythonExecutionOperator<T> extends BaseOperator implements
   public void setAccumulatedCommandHistory(List<PythonRequestResponse> accumulatedCommandHistory)
   {
     this.accumulatedCommandHistory = accumulatedCommandHistory;
+  }
+
+  public boolean isBlockAtEndOfWindowForStragglers()
+  {
+    return blockAtEndOfWindowForStragglers;
+  }
+
+  public void setBlockAtEndOfWindowForStragglers(boolean blockAtEndOfWindowForStragglers)
+  {
+    this.blockAtEndOfWindowForStragglers = blockAtEndOfWindowForStragglers;
   }
 }

@@ -69,7 +69,7 @@ public class SimplePythonOpOperator extends BasePythonExecutionOperator<PythonPr
         evalCommand,evalParams,"intMatrix",false, 20,
         TimeUnit.MILLISECONDS, NDimensionalArray.class);
     lastKnownResponse = pythonEngineRef.eval(
-        WorkerExecutionMode.ANY_WORKER,currentWindowId,requestIdForThisWindow,request);
+        WorkerExecutionMode.ANY_WORKER,currentWindowId, requestCounterForThisWindow,request);
     for ( String evalCommandSubmitted: lastKnownResponse.keySet()) {
       return lastKnownResponse.get(evalCommandSubmitted); // we just need one of the N workers response.
     }
